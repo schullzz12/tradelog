@@ -1,4 +1,5 @@
 // app/api/ai-analysis/route.js
+// 2-step approach: Search first, then structure into JSON
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
@@ -13,139 +14,161 @@ export async function POST(request) {
     return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
   }
 
+  const geminiUrl = (model) =>
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
   try {
-    const prompt = `Kamu analis saham Indonesia. Analisis saham ${ticker.toUpperCase()} di IDX.
+    // ═══════════════════════════════════════════
+    // STEP 1: Search for latest info (free text)
+    // ═══════════════════════════════════════════
+    const searchPrompt = `Cari informasi terbaru tentang saham ${ticker.toUpperCase()} yang listed di Bursa Efek Indonesia (IDX). Berikan:
 
-Cari berita terbaru dan data keuangan, lalu berikan analisis lengkap dalam format JSON berikut:
+1. Nama lengkap perusahaan
+2. Berita terbaru yang mempengaruhi harga saham (minimal 2-3 berita)
+3. Data laporan keuangan terakhir: revenue, laba bersih, EPS, PER, PBV
+4. Kondisi teknikal harga saham terkini
+5. Risiko dan katalis potensial
+6. Sentiment pasar saat ini
 
+Berikan informasi selengkap mungkin dalam bahasa Indonesia.`;
+
+    const searchRes = await fetch(geminiUrl('gemini-2.5-flash'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: searchPrompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+      }),
+    });
+
+    if (!searchRes.ok) {
+      const errText = await searchRes.text();
+      console.error('Step 1 error:', searchRes.status, errText);
+      return NextResponse.json({ error: `Search failed: ${searchRes.status}` }, { status: 502 });
+    }
+
+    const searchData = await searchRes.json();
+
+    // Extract all text from search response
+    const searchParts = searchData?.candidates?.[0]?.content?.parts || [];
+    const searchText = searchParts
+      .filter((p) => p.text)
+      .map((p) => p.text)
+      .join('\n');
+
+    if (!searchText) {
+      return NextResponse.json({ error: 'No search results' }, { status: 502 });
+    }
+
+    // Extract grounding sources from step 1
+    let sources = [];
+    const groundingMeta = searchData?.candidates?.[0]?.groundingMetadata;
+    if (groundingMeta?.groundingChunks) {
+      sources = groundingMeta.groundingChunks
+        .filter((c) => c.web)
+        .map((c) => ({ title: c.web.title || '', uri: c.web.uri || '' }))
+        .slice(0, 6);
+    }
+
+    // ═══════════════════════════════════════════
+    // STEP 2: Structure into JSON (no search tool)
+    // ═══════════════════════════════════════════
+    const structurePrompt = `Berdasarkan data berikut tentang saham ${ticker.toUpperCase()}, buat analisis dalam format JSON.
+
+DATA:
+${searchText.slice(0, 6000)}
+
+Buat JSON dengan struktur EXACT seperti ini:
 {
   "ticker": "${ticker.toUpperCase()}",
   "company_name": "nama lengkap perusahaan",
   "sentiment": "Bullish" atau "Bearish" atau "Neutral",
-  "sentiment_score": angka 1 sampai 10,
-  "summary": "ringkasan 2-3 kalimat kondisi saham saat ini dalam bahasa Indonesia",
+  "sentiment_score": angka 1-10 (1=sangat bearish, 10=sangat bullish),
+  "summary": "ringkasan 2-3 kalimat kondisi saham saat ini",
   "news": [
-    {"title": "judul berita 1", "summary": "ringkasan singkat", "impact": "Positive"},
-    {"title": "judul berita 2", "summary": "ringkasan singkat", "impact": "Negative"}
+    {"title": "judul berita", "summary": "ringkasan 1 kalimat", "impact": "Positive" atau "Negative" atau "Neutral"}
   ],
   "financials": {
-    "revenue": "info revenue terakhir",
-    "net_profit": "info laba bersih",
-    "eps": "earnings per share",
-    "per": "price to earnings ratio",
-    "pbv": "price to book value",
-    "summary": "ringkasan kondisi keuangan 1-2 kalimat"
+    "revenue": "angka revenue + periode",
+    "net_profit": "angka laba bersih + periode",
+    "eps": "EPS value",
+    "per": "PER value",
+    "pbv": "PBV value",
+    "summary": "ringkasan keuangan 1-2 kalimat"
   },
   "risks": ["risiko 1", "risiko 2", "risiko 3"],
-  "catalysts": ["katalis positif 1", "katalis positif 2", "katalis positif 3"],
-  "key_insight": "satu insight paling penting yang harus diperhatikan trader"
-}`;
+  "catalysts": ["katalis 1", "katalis 2", "katalis 3"],
+  "key_insight": "satu insight paling penting untuk trader"
+}
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+PENTING: Isi semua field berdasarkan data di atas. Jika data tidak tersedia, tulis "Data tidak tersedia". Pastikan output adalah valid JSON.`;
 
-    const res = await fetch(geminiUrl, {
+    const structureRes = await fetch(geminiUrl('gemini-2.5-flash'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }],
+        contents: [{ role: 'user', parts: [{ text: structurePrompt }] }],
         generationConfig: {
-          temperature: 0.3,
+          temperature: 0.1,
           maxOutputTokens: 4096,
-          
+          responseMimeType: 'application/json',
         },
       }),
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('Gemini API error:', res.status, errText);
-      return NextResponse.json({ error: `Gemini API error: ${res.status}` }, { status: 502 });
+    if (!structureRes.ok) {
+      const errText = await structureRes.text();
+      console.error('Step 2 error:', structureRes.status, errText);
+      return NextResponse.json({ error: `Structure failed: ${structureRes.status}` }, { status: 502 });
     }
 
-    const data = await res.json();
+    const structureData = await structureRes.json();
 
-    // Collect all text parts
-    const parts = data?.candidates?.[0]?.content?.parts || [];
-    const allText = parts
+    const structureParts = structureData?.candidates?.[0]?.content?.parts || [];
+    const jsonText = structureParts
       .filter((p) => p.text)
       .map((p) => p.text)
       .join('');
 
-    if (!allText) {
-      return NextResponse.json({ error: 'No response from Gemini' }, { status: 502 });
+    if (!jsonText) {
+      return NextResponse.json({ error: 'No structured response' }, { status: 502 });
     }
 
-    console.log('Gemini raw response length:', allText.length);
-
-    // Parse JSON — with responseMimeType it should be clean JSON
-    let analysis = null;
-
-    // Try 1: Direct parse
+    // Parse JSON — should be clean since we used responseMimeType
+    let analysis;
     try {
-      analysis = JSON.parse(allText);
+      analysis = JSON.parse(jsonText);
     } catch (e) {
-      console.log('Direct parse failed, trying extraction...');
-    }
-
-    // Try 2: Extract first complete JSON object
-    if (!analysis) {
+      // Fallback: try to extract JSON
       try {
-        // Find the first { and match to its closing }
-        const startIdx = allText.indexOf('{');
-        if (startIdx !== -1) {
-          let depth = 0;
-          let endIdx = -1;
-          for (let i = startIdx; i < allText.length; i++) {
-            if (allText[i] === '{') depth++;
-            if (allText[i] === '}') depth--;
-            if (depth === 0) {
-              endIdx = i;
-              break;
-            }
-          }
-          if (endIdx !== -1) {
-            const jsonStr = allText.substring(startIdx, endIdx + 1);
-            analysis = JSON.parse(jsonStr);
-          }
+        const match = jsonText.match(/\{[\s\S]*\}/);
+        if (match) {
+          analysis = JSON.parse(match[0]);
         }
-      } catch (e) {
-        console.error('Extraction parse failed:', e.message);
+      } catch (e2) {
+        console.error('JSON parse failed:', e2.message);
       }
     }
 
-    // Try 3: Clean up and retry
     if (!analysis) {
-      try {
-        const cleaned = allText
-          .replace(/```json\s*/g, '')
-          .replace(/```\s*/g, '')
-          .replace(/[\x00-\x1F\x7F]/g, ' ')
-          .trim();
-        analysis = JSON.parse(cleaned);
-      } catch (e) {
-        console.error('Cleaned parse failed:', e.message);
-      }
-    }
-
-    // Fallback
-    if (!analysis) {
-      analysis = {
+      return NextResponse.json({
         ticker: ticker.toUpperCase(),
         company_name: ticker.toUpperCase(),
         sentiment: 'Neutral',
         sentiment_score: 5,
-        summary: allText.slice(0, 500).replace(/[{}"\[\]]/g, '').trim(),
+        summary: searchText.slice(0, 500),
         news: [],
         financials: { summary: 'Data tidak tersedia' },
         risks: [],
         catalysts: [],
         key_insight: 'Analisis tersedia tapi format tidak dapat diproses.',
+        sources,
         raw: true,
-      };
+      });
     }
 
-    // Ensure required fields exist
+    // Ensure fields exist
     analysis.ticker = analysis.ticker || ticker.toUpperCase();
     analysis.sentiment = analysis.sentiment || 'Neutral';
     analysis.sentiment_score = analysis.sentiment_score || 5;
@@ -153,15 +176,7 @@ Cari berita terbaru dan data keuangan, lalu berikan analisis lengkap dalam forma
     analysis.risks = Array.isArray(analysis.risks) ? analysis.risks : [];
     analysis.catalysts = Array.isArray(analysis.catalysts) ? analysis.catalysts : [];
     analysis.financials = analysis.financials || { summary: 'Data tidak tersedia' };
-
-    // Extract grounding sources
-    const groundingMeta = data?.candidates?.[0]?.groundingMetadata;
-    if (groundingMeta?.groundingChunks) {
-      analysis.sources = groundingMeta.groundingChunks
-        .filter((c) => c.web)
-        .map((c) => ({ title: c.web.title || '', uri: c.web.uri || '' }))
-        .slice(0, 5);
-    }
+    analysis.sources = sources;
 
     return NextResponse.json(analysis, {
       headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200' },
