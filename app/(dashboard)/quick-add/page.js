@@ -555,14 +555,14 @@ export default function QuickAddTradePage() {
                   onChange={(e) => setSetupTag(e.target.value)}
                   className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
                 >
-                  <option className="bg-[#1a1a24] text-white" value="" className="bg-[#1a1a24] text-white">Pilih...</option>
-                  <option className="bg-[#1a1a24] text-white" value="Breakout">Breakout</option>
-                  <option className="bg-[#1a1a24] text-white" value="Pullback / Retracement">Pullback</option>
-                  <option className="bg-[#1a1a24] text-white" value="Support Bounce">Support Bounce</option>
-                  <option className="bg-[#1a1a24] text-white" value="Moving Average">Moving Average</option>
-                  <option className="bg-[#1a1a24] text-white" value="Gap Up/Down">Gap Up/Down</option>
-                  <option className="bg-[#1a1a24] text-white" value="MACD Cross">MACD Cross</option>
-                  <option className="bg-[#1a1a24] text-white" value="Lainnya">Lainnya</option>
+                  <option className="bg-[#1a1a24] text-white" value="">Pilih...</option>
+                  <option value="Breakout">Breakout</option>
+                  <option value="Pullback / Retracement">Pullback</option>
+                  <option value="Support Bounce">Support Bounce</option>
+                  <option value="Moving Average">Moving Average</option>
+                  <option value="Gap Up/Down">Gap Up/Down</option>
+                  <option value="MACD Cross">MACD Cross</option>
+                  <option value="Lainnya">Lainnya</option>
                 </select>
               </div>
               <div>
@@ -572,13 +572,13 @@ export default function QuickAddTradePage() {
                   onChange={(e) => setEmotionTag(e.target.value)}
                   className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
                 >
-                  <option className="bg-[#1a1a24] text-white" value="" className="bg-[#1a1a24] text-white">Pilih...</option>
-                  <option className="bg-[#1a1a24] text-white" value="Confident 😎">Confident 😎</option>
-                  <option className="bg-[#1a1a24] text-white" value="Tenang 😌">Tenang 😌</option>
-                  <option className="bg-[#1a1a24] text-white" value="FOMO 😰">FOMO 😰</option>
-                  <option className="bg-[#1a1a24] text-white" value="Serakah 🤑">Serakah 🤑</option>
-                  <option className="bg-[#1a1a24] text-white" value="Takut 😨">Takut 😨</option>
-                  <option className="bg-[#1a1a24] text-white" value="Revenge 😤">Revenge 😤</option>
+                  <option value="" className="bg-[#1a1a24] text-white">Pilih...</option>
+                  <option value="Confident 😎">Confident 😎</option>
+                  <option value="Tenang 😌">Tenang 😌</option>
+                  <option value="FOMO 😰">FOMO 😰</option>
+                  <option value="Serakah 🤑">Serakah 🤑</option>
+                  <option value="Takut 😨">Takut 😨</option>
+                  <option value="Revenge 😤">Revenge 😤</option>
                 </select>
               </div>
             </div>
