@@ -197,33 +197,47 @@ PENTING: Isi semua field berdasarkan data di atas. Jika data tidak tersedia, tul
       });
     }
 
-    // Ensure fields exist
+    // Ensure fields exist + sanitize types
     analysis.ticker = analysis.ticker || tickerUpper;
-    analysis.sentiment = analysis.sentiment || 'Neutral';
-    analysis.sentiment_score = analysis.sentiment_score || 5;
-    analysis.news = Array.isArray(analysis.news) ? analysis.news : [];
-    analysis.risks = Array.isArray(analysis.risks) ? analysis.risks : [];
-    analysis.catalysts = Array.isArray(analysis.catalysts) ? analysis.catalysts : [];
+    analysis.sentiment = ['Bullish', 'Bearish', 'Neutral'].includes(analysis.sentiment) ? analysis.sentiment : 'Neutral';
+    
+    // Force sentiment_score to be a valid number 1-10
+    let score = parseFloat(analysis.sentiment_score);
+    if (isNaN(score) || score < 1 || score > 10) score = 5;
+    analysis.sentiment_score = Math.round(score);
+
+    analysis.summary = (typeof analysis.summary === 'string' && analysis.summary !== 'Data tidak tersedia') 
+      ? analysis.summary : 'Analisis sedang diproses.';
+    analysis.news = Array.isArray(analysis.news) ? analysis.news.filter(n => n && n.title && n.title !== 'Data tidak tersedia') : [];
+    analysis.risks = Array.isArray(analysis.risks) ? analysis.risks.filter(r => r && r !== 'Data tidak tersedia') : [];
+    analysis.catalysts = Array.isArray(analysis.catalysts) ? analysis.catalysts.filter(c => c && c !== 'Data tidak tersedia') : [];
     analysis.financials = analysis.financials || { summary: 'Data tidak tersedia' };
+    analysis.key_insight = (typeof analysis.key_insight === 'string' && analysis.key_insight !== 'Data tidak tersedia')
+      ? analysis.key_insight : null;
     analysis.sources = sources;
 
+    // Don't cache if most data is missing
+    const hasRealData = analysis.news.length > 0 || analysis.risks.length > 0 || (analysis.financials.revenue && analysis.financials.revenue !== 'Data tidak tersedia');
+    
+
     // ═══════════════════════════════════════════
-    // SAVE TO CACHE (upsert)
+    // SAVE TO CACHE (only if we have real data)
     // ═══════════════════════════════════════════
-    try {
-      await supabaseAdmin
-        .from('ai_analysis_cache')
-        .upsert(
-          {
-            ticker: tickerUpper,
-            analysis: analysis,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: 'ticker' }
-        );
-    } catch (cacheErr) {
-      console.error('Cache save error:', cacheErr);
-      // Non-blocking — still return the analysis
+    if (hasRealData) {
+      try {
+        await supabaseAdmin
+          .from('ai_analysis_cache')
+          .upsert(
+            {
+              ticker: tickerUpper,
+              analysis: analysis,
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: 'ticker' }
+          );
+      } catch (cacheErr) {
+        console.error('Cache save error:', cacheErr);
+      }
     }
 
     return NextResponse.json(analysis, {
