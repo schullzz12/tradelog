@@ -86,59 +86,91 @@ export default function TradeTable({ trades = [], limit }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2a2a3a]">
-            {displayed.map((trade) => (
-              <tr
-                key={trade.id}
-                onClick={() => router.push(`/trades/${trade.id}`)}
-                className="hover:bg-[#1c1c28] transition-colors cursor-pointer group"
-              >
-                <td className="px-4 py-3 text-sm text-zinc-300 whitespace-nowrap">
-                  {formatDate(trade.entry_date)}
-                </td>
-                <td className="px-4 py-3">
-                  <span className="text-sm font-mono font-semibold text-white group-hover:text-emerald-400 transition-colors">
-                    {trade.ticker}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                      trade.type === "long"
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-red-500/10 text-red-400"
-                    }`}
-                  >
-                    {trade.type === "long" ? "Long" : "Short"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm font-mono text-zinc-300">
-                  {trade.entry_price?.toLocaleString("id-ID")}
-                </td>
-                <td className="px-4 py-3 text-sm font-mono text-zinc-300">
-                  {trade.exit_price ? trade.exit_price.toLocaleString("id-ID") : "—"}
-                </td>
-                <td className="px-4 py-3 text-sm font-mono text-zinc-300">
-                  {trade.shares ? (trade.shares / 100).toFixed(0) : "—"}
-                </td>
-                <td className={`px-4 py-3 text-sm font-mono font-medium ${getPnlColor(trade.pnl)}`}>
-                  {trade.pnl != null ? formatRupiah(trade.pnl) : "—"}
-                </td>
-                <td className={`px-4 py-3 text-sm font-mono font-medium ${getPnlColor(trade.pnl_percent)}`}>
-                  {trade.pnl_percent != null ? formatPercent(trade.pnl_percent) : "—"}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                      trade.status === "open"
-                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                        : "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
-                    }`}
-                  >
-                    {trade.status === "open" ? "Open" : "Closed"}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {displayed.map((trade) => {
+              // Use unrealized P&L for open trades if available
+              const isOpen = trade.status === "open";
+              const displayPnl = isOpen ? trade._unrealizedPnl : trade.pnl;
+              const displayPct = isOpen ? trade._unrealizedPct : trade.pnl_percent;
+              const displayExit = isOpen ? trade._lastPrice : trade.exit_price;
+
+              return (
+                <tr
+                  key={trade.id}
+                  onClick={() => router.push(`/trades/${trade.id}`)}
+                  className="hover:bg-[#1c1c28] transition-colors cursor-pointer group"
+                >
+                  <td className="px-4 py-3 text-sm text-zinc-300 whitespace-nowrap">
+                    {formatDate(trade.entry_date)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-sm font-mono font-semibold text-white group-hover:text-emerald-400 transition-colors">
+                      {trade.ticker}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                        trade.type === "long"
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : "bg-red-500/10 text-red-400"
+                      }`}
+                    >
+                      {trade.type === "long" ? "Long" : "Short"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm font-mono text-zinc-300">
+                    {trade.entry_price?.toLocaleString("id-ID")}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-mono text-zinc-300">
+                    {displayExit ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {displayExit.toLocaleString("id-ID")}
+                        {isOpen && trade._lastPrice && (
+                          <span className="text-[10px] text-zinc-600 font-normal">live</span>
+                        )}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-mono text-zinc-300">
+                    {trade.shares ? (trade.shares / 100).toFixed(0) : "—"}
+                  </td>
+                  <td className={`px-4 py-3 text-sm font-mono font-medium ${getPnlColor(displayPnl)}`}>
+                    {displayPnl != null ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {formatRupiah(displayPnl)}
+                        {isOpen && trade._unrealizedPnl != null && (
+                          <span className="text-[10px] text-zinc-600 font-normal">unrl</span>
+                        )}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className={`px-4 py-3 text-sm font-mono font-medium ${getPnlColor(displayPct)}`}>
+                    {displayPct != null ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {formatPercent(displayPct)}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                        trade.status === "open"
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          : "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20"
+                      }`}
+                    >
+                      {trade.status === "open" ? "Open" : "Closed"}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

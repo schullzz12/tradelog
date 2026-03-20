@@ -12,9 +12,25 @@ const DAYS_ID = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 function getMonthData(year, month) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Monday = 0
+  const startDayOfWeek = (firstDay.getDay() + 6) % 7;
   const daysInMonth = lastDay.getDate();
   return { startDayOfWeek, daysInMonth };
+}
+
+// Compact rupiah format: 50jt, 4jt, 250rb, 30rb
+function compactRupiah(num) {
+  if (num == null) return "";
+  const abs = Math.abs(num);
+  const sign = num >= 0 ? "+" : "-";
+  if (abs >= 1_000_000) {
+    const val = abs / 1_000_000;
+    return `${sign}${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)}jt`;
+  }
+  if (abs >= 1_000) {
+    const val = abs / 1_000;
+    return `${sign}${val % 1 === 0 ? val.toFixed(0) : val.toFixed(0)}rb`;
+  }
+  return `${sign}${abs}`;
 }
 
 export default function PnLCalendar({ trades = [] }) {
@@ -22,7 +38,6 @@ export default function PnLCalendar({ trades = [] }) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // Aggregate PnL per day
   const dailyPnl = useMemo(() => {
     const map = {};
     trades
@@ -62,17 +77,14 @@ export default function PnLCalendar({ trades = [] }) {
   }
 
   const cells = [];
-  // Empty cells before month starts
   for (let i = 0; i < startDayOfWeek; i++) {
     cells.push(<div key={`empty-${i}`} className="aspect-square" />);
   }
-  // Day cells
   for (let day = 1; day <= daysInMonth; day++) {
     const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const pnl = dailyPnl[dateKey] || null;
     const color = getColorForPnl(pnl);
-    const isToday =
-      new Date().toISOString().split("T")[0] === dateKey;
+    const isToday = new Date().toISOString().split("T")[0] === dateKey;
 
     cells.push(
       <div
@@ -82,6 +94,17 @@ export default function PnLCalendar({ trades = [] }) {
         }`}
       >
         <span className="text-xs text-zinc-400">{day}</span>
+        {/* Always show P&L amount inside the cell */}
+        {pnl != null && pnl !== 0 && (
+          <span
+            className={`text-[9px] font-mono font-semibold leading-none mt-0.5 ${
+              pnl > 0 ? "text-emerald-400" : "text-red-400"
+            }`}
+          >
+            {compactRupiah(pnl)}
+          </span>
+        )}
+        {/* Tooltip on hover for full amount */}
         {pnl != null && pnl !== 0 && (
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-[#111118] border border-[#2a2a3a] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 whitespace-nowrap">
             <p className="text-xs text-zinc-400">{dateKey}</p>
@@ -100,7 +123,6 @@ export default function PnLCalendar({ trades = [] }) {
 
   return (
     <div className="bg-[#16161f] border border-[#2a2a3a] rounded-xl p-5 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-white">Kalender P&L</h3>
         <div className="flex items-center gap-2">
@@ -126,22 +148,16 @@ export default function PnLCalendar({ trades = [] }) {
         </div>
       </div>
 
-      {/* Day labels */}
       <div className="grid grid-cols-7 gap-1.5 mb-1.5">
         {DAYS_ID.map((d) => (
-          <div
-            key={d}
-            className="text-center text-[10px] font-medium text-zinc-600 py-1"
-          >
+          <div key={d} className="text-center text-[10px] font-medium text-zinc-600 py-1">
             {d}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-1.5">{cells}</div>
 
-      {/* Legend */}
       <div className="flex items-center justify-center gap-4 mt-4 text-[10px] text-zinc-500">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-red-500/40" />

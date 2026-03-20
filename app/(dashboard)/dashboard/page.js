@@ -27,7 +27,9 @@ export default function DashboardPage() {
         .order("entry_date", { ascending: false });
 
       if (!error && data) {
-        setTrades(data);
+        // Enrich open trades with unrealized P&L
+        const enriched = await enrichOpenTrades(data);
+        setTrades(enriched);
       }
       setLoading(false);
     }
@@ -101,4 +103,59 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+}
+
+// ── Fetch last close price for open trades & calculate unrealized P&L ──
+async function enrichOpenTrades(trades) {
+  const openTrades = trades.filter((t) => t.status === "open");
+  if (openTrades.length === 0) return trades;
+
+  // Get unique tickers from open trades
+  const uniqueTickers = [...new Set(openTrades.map((t) => t.ticker.toUpperCase()))];
+
+  // Fetch last close price for each ticker
+  const priceMap = {};
+  const now = Math.floor(Date.now() / 1000);
+  const weekAgo = now - 7 * 24 * 60 * 60; // 7 days back to ensure we get at least 1 trading day
+
+  await Promise.all(
+    uniqueTickers.map(async (ticker) => {
+      try {
+        const res = await fetch(
+          `/api/chart-data?ticker=${ticker}.JK&period1=${weekAgo}&period2=${now}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.length > 0) {
+          // Last element = most recent trading day close
+          priceMap[ticker] = data[data.length - 1].close;
+        }
+      } catch (err) {
+        console.error(`Failed to fetch price for ${ticker}:`, err);
+      }
+    })
+  );
+
+  // Enrich trades with unrealized P&L
+  return trades.map((trade) => {
+    if (trade.status !== "open") return trade;
+
+    const lastPrice = priceMap[trade.ticker.toUpperCase()];
+    if (!lastPrice || !trade.entry_price || !trade.shares) return trade;
+
+    const isLong = trade.type === "long";
+    const unrealizedPnl = isLong
+      ? (lastPrice - trade.entry_price) * trade.shares
+      : (trade.entry_price - lastPrice) * trade.shares;
+    const unrealizedPct = isLong
+      ? ((lastPrice - trade.entry_price) / trade.entry_price) * 100
+      : ((trade.entry_price - lastPrice) / trade.entry_price) * 100;
+
+    return {
+      ...trade,
+      _lastPrice: lastPrice,
+      _unrealizedPnl: Math.round(unrealizedPnl),
+      _unrealizedPct: Math.round(unrealizedPct * 100) / 100,
+    };
+  });
 }

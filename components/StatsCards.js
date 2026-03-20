@@ -2,7 +2,7 @@
 
 import { formatRupiah, formatPercent, getPnlColor } from "@/lib/utils";
 
-const StatCard = ({ label, value, subValue, icon, delay }) => (
+const StatCard = ({ label, value, subValue, icon, delay, valueClass }) => (
   <div
     className={`bg-[#16161f] border border-[#2a2a3a] rounded-xl p-5 animate-fade-in stagger-${delay}`}
   >
@@ -14,14 +14,24 @@ const StatCard = ({ label, value, subValue, icon, delay }) => (
         {icon}
       </div>
     </div>
-    <p className="text-2xl font-semibold text-white tracking-tight">{value}</p>
+    <p className={`text-2xl font-semibold tracking-tight ${valueClass || 'text-white'}`}>{value}</p>
     {subValue && <p className="text-xs text-zinc-500 mt-1">{subValue}</p>}
   </div>
 );
 
 export default function StatsCards({ trades = [] }) {
   const closedTrades = trades.filter((t) => t.status === "closed");
-  const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const openTrades = trades.filter((t) => t.status === "open");
+
+  // Realized P&L from closed trades
+  const realizedPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
+  // Unrealized P&L from open trades (enriched by dashboard)
+  const unrealizedPnl = openTrades.reduce((sum, t) => sum + (t._unrealizedPnl || 0), 0);
+
+  // Total = realized + unrealized
+  const totalPnl = realizedPnl + unrealizedPnl;
+
   const winTrades = closedTrades.filter((t) => (t.pnl || 0) > 0);
   const winRate =
     closedTrades.length > 0
@@ -39,11 +49,18 @@ export default function StatsCards({ trades = [] }) {
       : 0;
   const profitFactor = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? Infinity : 0;
 
+  // Sub-value for Total P&L: show breakdown if there are open trades with unrealized
+  const hasUnrealized = openTrades.some((t) => t._unrealizedPnl != null);
+  let pnlSubValue = `${closedTrades.length} trade selesai`;
+  if (hasUnrealized && unrealizedPnl !== 0) {
+    pnlSubValue = `Realized ${formatRupiah(realizedPnl)} · Unrealized ${formatRupiah(unrealizedPnl)}`;
+  }
+
   const stats = [
     {
       label: "Total P&L",
       value: formatRupiah(totalPnl),
-      subValue: `${closedTrades.length} trade selesai`,
+      subValue: pnlSubValue,
       valueClass: getPnlColor(totalPnl),
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -77,7 +94,7 @@ export default function StatsCards({ trades = [] }) {
     {
       label: "Total Trades",
       value: trades.length,
-      subValue: `${trades.filter((t) => t.status === "open").length} masih open`,
+      subValue: `${openTrades.length} masih open`,
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="20" x2="12" y2="10" />

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import RiskCalculatorModal from "@/components/RiskCalculatorModal";
 
 const navItems = [
   {
@@ -21,6 +22,7 @@ const navItems = [
   {
     label: "Trades",
     href: "/trades",
+    matchPaths: ["/trades", "/trades/new", "/quick-add"],
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <line x1="12" y1="20" x2="12" y2="10" />
@@ -30,61 +32,24 @@ const navItems = [
     ),
   },
   {
-    label: "Trade Baru",
-    href: "/trades/new",
+    label: "Watchlist",
+    href: "/watchlist",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="16" />
-        <line x1="8" y1="12" x2="16" y2="12" />
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
       </svg>
     ),
   },
   {
-    label: "Quick Add",
-    href: "/quick-add",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-        <polyline points="16 7 22 7 22 13" />
-      </svg>
-    ),
-  },
-  {
-    label: "Risk Calculator",
-    href: "/risk-calculator",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="2" width="16" height="20" rx="2" />
-        <line x1="8" y1="6" x2="16" y2="6" />
-        <line x1="8" y1="10" x2="10" y2="10" />
-        <line x1="14" y1="10" x2="16" y2="10" />
-        <line x1="8" y1="14" x2="10" y2="14" />
-        <line x1="14" y1="14" x2="16" y2="14" />
-        <line x1="8" y1="18" x2="10" y2="18" />
-        <line x1="14" y1="18" x2="16" y2="18" />
-      </svg>
-    ),
-  },
-  {
-    label: "Emosi",
-    href: "/emotions",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-        <line x1="9" y1="9" x2="9.01" y2="9" />
-        <line x1="15" y1="9" x2="15.01" y2="9" />
-      </svg>
-    ),
-  },
-  {
-    label: "Performa",
+    label: "Insights",
+    subtitle: "Performa vs IHSG · AI Analysis",
     href: "/performance",
+    matchPaths: ["/performance", "/emotions"],
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-        <polyline points="16 7 22 7 22 13" />
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
       </svg>
     ),
   },
@@ -93,10 +58,11 @@ const navItems = [
 export default function DashboardLayout({ children }) {
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [riskCalcOpen, setRiskCalcOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
- useEffect(() => {
+  useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
         window.location.href = "/login";
@@ -110,6 +76,13 @@ export default function DashboardLayout({ children }) {
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  }
+
+  function isActive(item) {
+    if (item.matchPaths) {
+      return item.matchPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    }
+    return pathname === item.href;
   }
 
   return (
@@ -146,24 +119,65 @@ export default function DashboardLayout({ children }) {
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const active = isActive(item);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  isActive
+                  active
                     ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-[#1c1c28]"
                 }`}
               >
                 {item.icon}
-                {item.label}
+                <div className="min-w-0">
+                  <span className="block">{item.label}</span>
+                  {item.subtitle && (
+                    <span className={`block text-[10px] leading-tight mt-0.5 ${
+                      active ? "text-emerald-400/50" : "text-zinc-600"
+                    }`}>
+                      {item.subtitle}
+                    </span>
+                  )}
+                </div>
               </Link>
             );
           })}
         </nav>
+
+        {/* Quick actions */}
+        <div className="px-4 pb-2 space-y-2">
+          <Link
+            href="/trades/new"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Trade Baru
+          </Link>
+          <button
+            onClick={() => {
+              setRiskCalcOpen(true);
+              setSidebarOpen(false);
+            }}
+            className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="2" width="16" height="20" rx="2" />
+              <line x1="8" y1="6" x2="16" y2="6" />
+              <line x1="8" y1="10" x2="10" y2="10" />
+              <line x1="14" y1="10" x2="16" y2="10" />
+              <line x1="8" y1="14" x2="10" y2="14" />
+              <line x1="14" y1="14" x2="16" y2="14" />
+            </svg>
+            Risk Calculator
+          </button>
+        </div>
 
         {/* User */}
         <div className="p-4 border-t border-[#2a2a3a]">
@@ -210,6 +224,12 @@ export default function DashboardLayout({ children }) {
           {children}
         </main>
       </div>
+
+      {/* Risk Calculator Modal — accessible from any page */}
+      <RiskCalculatorModal
+        isOpen={riskCalcOpen}
+        onClose={() => setRiskCalcOpen(false)}
+      />
     </div>
   );
 }

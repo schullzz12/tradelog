@@ -4,15 +4,31 @@ import { useState, useEffect, useRef } from 'react';
 import AIAnalysis from '@/components/AIAnalysis';
 
 const IDX_TICKERS = [
-  'BBRI','BBCA','BMRI','BBNI','TLKM','ASII','UNVR','HMSP','GGRM','KLBF',
-  'ICBP','INDF','SMGR','PTBA','ADRO','ITMG','ANTM','INCO','MDKA','AMRT',
-  'CPIN','JPFA','EXCL','ISAT','TOWR','MNCN','SCMA','EMTK','ACES','ERAA',
-  'BRIS','BTPS','BJTM','BJBR','MEGA','PNBN','NISP','ARTO','BBYB','AMAR',
-  'ASRI','BSDE','CTRA','SMRA','PWON','DILD','LPKR','PPRO','JRPT','MKPI',
-  'UNTR','HEXA','PGAS','AKRA','MPMX','LSIP','AALI','DSNG','TBLA','SGRO',
-  'SIDO','TSPC','PYFA','KAEF','INAF','MYOR','ROTI','ULTJ','GOOD','ADES',
-  'INKP','TKIM','INTP','WTON','WIKA','PTPP','WSKT','ADHI','JSMR','BKSL',
-  'TPIA','BRPT','ESSA','MEDC','ELSA','RAJA','SRTG','DSSA','BUKA','GOTO',
+  // Big banks
+  'BBRI','BBCA','BMRI','BBNI','BRIS','BTPS','BJTM','BJBR','MEGA','PNBN','NISP','ARTO','BBYB','AMAR','BBTN','BNGA','BDMN',
+  // Telco & tech
+  'TLKM','EXCL','ISAT','TOWR','MNCN','SCMA','EMTK','BUKA','GOTO','BELI',
+  // Consumer
+  'UNVR','HMSP','GGRM','KLBF','ICBP','INDF','MYOR','ROTI','ULTJ','GOOD','ADES','AMRT','CPIN','JPFA','SIDO','TSPC','PYFA','KAEF','INAF',
+  // Mining & energy
+  'ADRO','PTBA','ITMG','ANTM','INCO','MDKA','MEDC','ELSA','RAJA','ESSA','DSSA',
+  'NCKL','MBMA','BREN','CUAN','HRUM','TINS','UNTR','HEXA',
+  // Property
+  'ASRI','BSDE','CTRA','SMRA','PWON','DILD','LPKR','PPRO','JRPT','MKPI','BKSL',
+  // Infrastructure & construction
+  'WIKA','PTPP','WSKT','ADHI','JSMR','WTON','INTP','SMGR',
+  // Plantation
+  'LSIP','AALI','DSNG','TBLA','SGRO',
+  // Retail & distribution
+  'ACES','ERAA','MPMX',
+  // Pulp & paper
+  'INKP','TKIM',
+  // Petrochem & industrial
+  'TPIA','BRPT','SRTG',
+  // Gas & fuel
+  'PGAS','AKRA',
+  // Others popular
+  'FILM','MAPI','LPPF','BTBR','PGEO','AMMN','CBDK','JARR','DCII','EMPT',
 ];
 
 const PERIODS = [
@@ -249,12 +265,20 @@ export default function PerformancePage() {
             type="text"
             value={searchQuery}
             onChange={(e) => {
-              setSearchQuery(e.target.value);
+              setSearchQuery(e.target.value.toUpperCase());
               setShowDropdown(true);
             }}
             onFocus={() => setShowDropdown(true)}
             onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-            placeholder="Ketik ticker... (BBRI, BBCA)"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && searchQuery.trim().length >= 2) {
+                const val = searchQuery.trim().toUpperCase();
+                setTicker(val);
+                setSearchQuery(val);
+                setShowDropdown(false);
+              }
+            }}
+            placeholder="Ketik ticker lalu Enter..."
             className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg py-2.5 px-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 font-mono uppercase"
           />
           {showDropdown && filteredTickers.length > 0 && (
@@ -272,6 +296,36 @@ export default function PerformancePage() {
                   {t}<span className="text-zinc-600">.JK</span>
                 </button>
               ))}
+              {/* Show hint if query doesn't match any suggestion */}
+              {searchQuery.length >= 2 && !IDX_TICKERS.includes(searchQuery.toUpperCase()) && (
+                <button
+                  onMouseDown={() => {
+                    const val = searchQuery.trim().toUpperCase();
+                    setTicker(val);
+                    setSearchQuery(val);
+                    setShowDropdown(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm font-mono text-zinc-500 hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors border-t border-white/[0.04]"
+                >
+                  Cari "<span className="text-white">{searchQuery.toUpperCase()}</span>" di Yahoo Finance
+                </button>
+              )}
+            </div>
+          )}
+          {/* Show "press Enter" hint when typing unknown ticker */}
+          {showDropdown && searchQuery.length >= 2 && filteredTickers.length === 0 && (
+            <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-[#1a1a24] border border-white/[0.08] rounded-lg overflow-hidden shadow-xl">
+              <button
+                onMouseDown={() => {
+                  const val = searchQuery.trim().toUpperCase();
+                  setTicker(val);
+                  setSearchQuery(val);
+                  setShowDropdown(false);
+                }}
+                className="w-full text-left px-3 py-2.5 text-sm font-mono text-zinc-400 hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
+              >
+                Cari "<span className="text-white">{searchQuery.toUpperCase()}</span>.JK" — tekan Enter
+              </button>
             </div>
           )}
         </div>
