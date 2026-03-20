@@ -73,7 +73,7 @@ Berikan informasi selengkap mungkin dalam bahasa Indonesia.`;
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: searchPrompt }] }],
         tools: [{ google_search: {} }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
+        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
       }),
     });
 
@@ -143,7 +143,7 @@ PENTING: Isi semua field berdasarkan data di atas. Jika data tidak tersedia, tul
         contents: [{ role: 'user', parts: [{ text: structurePrompt }] }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 4096,
+          maxOutputTokens: 2048,
           responseMimeType: 'application/json',
         },
       }),
