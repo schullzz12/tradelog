@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useParams } from "next/navigation";
 import TradeEntryForm from "@/components/TradeEntryForm";
+import TradeChart from "@/components/TradeChart";
 
 export default function EditTradePage() {
   const [trade, setTrade] = useState(null);
@@ -60,6 +61,18 @@ export default function EditTradePage() {
           {trade.ticker} — Entry {new Date(trade.entry_date).toLocaleDateString("id-ID")}
         </p>
       </div>
+
+      {/* TradingView Chart with BUY/SELL markers */}
+      <TradeChart
+        ticker={trade.ticker}
+        entryDate={trade.entry_date}
+        exitDate={trade.exit_date}
+        entryPrice={trade.entry_price}
+        exitPrice={trade.exit_price}
+        type={trade.type}
+        status={trade.status}
+      />
+
       <TradeEntryForm trade={trade} />
     </div>
   );
