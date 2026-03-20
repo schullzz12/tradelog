@@ -143,7 +143,7 @@ PENTING: Isi semua field berdasarkan data di atas. Jika data tidak tersedia, tul
         contents: [{ role: 'user', parts: [{ text: structurePrompt }] }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 3000,
           responseMimeType: 'application/json',
         },
       }),
