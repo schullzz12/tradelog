@@ -51,7 +51,6 @@ export default function PerformancePage() {
     try {
       const { createChart, LineStyle } = await import('lightweight-charts');
 
-      // Calculate date range
       const now = new Date();
       let start = new Date();
 
@@ -68,7 +67,6 @@ export default function PerformancePage() {
       const period1 = Math.floor(start.getTime() / 1000);
       const period2 = Math.floor(now.getTime() / 1000);
 
-      // Fetch both stock and IHSG data
       const [stockRes, ihsgRes] = await Promise.all([
         fetch(`/api/chart-data?ticker=${ticker.toUpperCase()}.JK&period1=${period1}&period2=${period2}`),
         fetch(`/api/chart-data?ticker=%5EJKSE&period1=${period1}&period2=${period2}`),
@@ -83,7 +81,6 @@ export default function PerformancePage() {
       if (!stockData?.length) throw new Error(`Data ${ticker} tidak ditemukan`);
       if (!ihsgData?.length) throw new Error('Data IHSG tidak ditemukan');
 
-      // Deduplicate
       const dedup = (data) => {
         const seen = new Set();
         return data
@@ -98,7 +95,6 @@ export default function PerformancePage() {
       const cleanStock = dedup(stockData);
       const cleanIhsg = dedup(ihsgData);
 
-      // Normalize to percentage change from first day
       const baseStock = cleanStock[0].close;
       const baseIhsg = cleanIhsg[0].close;
 
@@ -112,14 +108,12 @@ export default function PerformancePage() {
         value: ((d.close - baseIhsg) / baseIhsg) * 100,
       }));
 
-      // Calculate stats
       const lastStock = cleanStock[cleanStock.length - 1].close;
       const lastIhsg = cleanIhsg[cleanIhsg.length - 1].close;
       const stockReturn = ((lastStock - baseStock) / baseStock) * 100;
       const ihsgReturn = ((lastIhsg - baseIhsg) / baseIhsg) * 100;
       const alpha = stockReturn - ihsgReturn;
 
-      // High & low
       const stockHigh = Math.max(...cleanStock.map((d) => d.close));
       const stockLow = Math.min(...cleanStock.map((d) => d.close));
       const stockHighPct = ((stockHigh - baseStock) / baseStock) * 100;
@@ -180,10 +174,12 @@ export default function PerformancePage() {
 
       chartRef.current = chart;
 
-      // Stock line
-      const stockSeries = chart.addLineSeries({
-        color: '#22c55e',
+      // Stock line with area gradient
+      const stockSeries = chart.addAreaSeries({
+        lineColor: '#22c55e',
         lineWidth: 2,
+        topColor: 'rgba(34, 197, 94, 0.25)',
+        bottomColor: 'rgba(34, 197, 94, 0.0)',
         title: ticker.toUpperCase(),
         priceFormat: {
           type: 'custom',
@@ -192,7 +188,7 @@ export default function PerformancePage() {
       });
       stockSeries.setData(normalizedStock);
 
-      // IHSG line
+      // IHSG line (no area fill, just line)
       const ihsgSeries = chart.addLineSeries({
         color: '#f59e0b',
         lineWidth: 2,
@@ -214,7 +210,6 @@ export default function PerformancePage() {
         priceLineVisible: false,
         lastValueVisible: false,
       });
-      // Create zero line data across the same time range
       const zeroData = normalizedStock.map((d) => ({ time: d.time, value: 0 }));
       zeroLine.setData(zeroData);
 
@@ -289,10 +284,10 @@ export default function PerformancePage() {
               <button
                 key={p.value}
                 onClick={() => setPeriod(p.value)}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
                   period === p.value
-                    ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
-                    : 'bg-white/[0.03] text-zinc-500 hover:text-zinc-300'
+                    ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
+                    : 'bg-white/[0.03] text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06]'
                 }`}
               >
                 {p.label}
@@ -302,7 +297,7 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      {/* Stats cards */}
+      {/* Stats cards — redesigned with tinted backgrounds */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard
@@ -320,15 +315,16 @@ export default function PerformancePage() {
           <StatCard
             label="Alpha (Selisih)"
             value={`${stats.alpha >= 0 ? '+' : ''}${stats.alpha.toFixed(2)}%`}
-            sub={stats.outperform ? 'Outperform IHSG ✓' : 'Underperform IHSG ✗'}
+            badge={stats.outperform ? 'OUTPERFORM' : 'UNDERPERFORM'}
             color={stats.alpha >= 0 ? 'green' : 'red'}
-            highlight
           />
-          <StatCard
+          <RangeCard
             label="Range Harga"
-            value={`${formatRupiah(stats.stockLow)} - ${formatRupiah(stats.stockHigh)}`}
-            sub={`Low ${stats.stockLowPct.toFixed(1)}% / High +${stats.stockHighPct.toFixed(1)}%`}
-            color="neutral"
+            low={stats.stockLow}
+            high={stats.stockHigh}
+            current={stats.lastStock}
+            lowPct={stats.stockLowPct}
+            highPct={stats.stockHighPct}
           />
         </div>
       )}
@@ -353,10 +349,10 @@ export default function PerformancePage() {
               </div>
             </div>
             {stats && (
-              <span className={`px-2 py-1 rounded-md text-xs font-mono font-semibold ${
+              <span className={`px-2.5 py-1 rounded-md text-xs font-mono font-semibold ${
                 stats.outperform
-                  ? 'bg-emerald-500/10 text-emerald-400'
-                  : 'bg-red-500/10 text-red-400'
+                  ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20'
+                  : 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20'
               }`}>
                 {stats.outperform ? '↑ OUTPERFORM' : '↓ UNDERPERFORM'}
               </span>
@@ -404,34 +400,86 @@ export default function PerformancePage() {
   );
 }
 
-// ── Sub-components ──
-
-function StatCard({ label, value, sub, color, highlight }) {
-  const colors = {
-    green: 'text-emerald-400',
-    red: 'text-red-400',
-    neutral: 'text-white',
+// ── Redesigned stat card with tinted background ──
+function StatCard({ label, value, sub, color, badge }) {
+  const tints = {
+    green: {
+      bg: 'bg-gradient-to-br from-emerald-500/[0.08] to-emerald-900/[0.03]',
+      border: 'border-emerald-500/15',
+      text: 'text-emerald-400',
+      badgeBg: 'bg-emerald-500/15',
+      badgeText: 'text-emerald-400',
+    },
+    red: {
+      bg: 'bg-gradient-to-br from-red-500/[0.08] to-red-900/[0.03]',
+      border: 'border-red-500/15',
+      text: 'text-red-400',
+      badgeBg: 'bg-red-500/15',
+      badgeText: 'text-red-400',
+    },
+    neutral: {
+      bg: 'bg-white/[0.02]',
+      border: 'border-white/[0.06]',
+      text: 'text-white',
+      badgeBg: 'bg-white/[0.06]',
+      badgeText: 'text-zinc-300',
+    },
   };
+  const t = tints[color] || tints.neutral;
 
   return (
-    <div className={`rounded-xl p-4 ${
-      highlight
-        ? color === 'green'
-          ? 'border border-emerald-500/20 bg-emerald-500/[0.04]'
-          : 'border border-red-500/20 bg-red-500/[0.04]'
-        : 'border border-white/[0.06] bg-white/[0.02]'
-    }`}>
+    <div className={`rounded-xl p-4 border ${t.border} ${t.bg}`}>
       <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{label}</p>
-      <p className={`text-lg font-mono font-bold mt-1 ${colors[color] || 'text-white'}`}>
+      <p className={`text-2xl font-mono font-bold mt-1.5 ${t.text}`}>
         {value}
       </p>
-      {sub && <p className="text-[11px] text-zinc-600 mt-0.5">{sub}</p>}
+      {sub && <p className="text-[11px] text-zinc-600 mt-1">{sub}</p>}
+      {badge && (
+        <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${t.badgeBg} ${t.badgeText}`}>
+          {badge}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Range card with visual progress bar ──
+function RangeCard({ label, low, high, current, lowPct, highPct }) {
+  const range = high - low;
+  const position = range > 0 ? ((current - low) / range) * 100 : 50;
+
+  return (
+    <div className="rounded-xl p-4 border border-white/[0.06] bg-white/[0.02]">
+      <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{label}</p>
+      <p className="text-lg font-mono font-bold mt-1.5 text-white">
+        {formatRupiah(low)} – {formatRupiah(high)}
+      </p>
+      {/* Visual range bar */}
+      <div className="mt-2.5 relative">
+        <div className="h-1.5 bg-white/[0.06] rounded-full overflow-visible relative">
+          <div
+            className="absolute left-0 top-0 h-full rounded-full"
+            style={{
+              width: `${Math.min(100, Math.max(0, position))}%`,
+              background: 'linear-gradient(90deg, #ef4444, #f59e0b, #22c55e)',
+            }}
+          />
+          {/* Current price dot */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full border-2 border-[#0f1117] shadow-sm"
+            style={{ left: `${Math.min(96, Math.max(2, position))}%` }}
+          />
+        </div>
+        <div className="flex justify-between mt-1.5">
+          <span className="text-[10px] text-zinc-600">Low {lowPct.toFixed(1)}%</span>
+          <span className="text-[10px] text-zinc-600">High +{highPct.toFixed(1)}%</span>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ── Helpers ──
-
 function formatRupiah(num) {
   if (num == null || isNaN(num)) return '-';
   return new Intl.NumberFormat('id-ID', {
