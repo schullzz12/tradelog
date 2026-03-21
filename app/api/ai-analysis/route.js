@@ -1,7 +1,9 @@
 // app/api/ai-analysis/route.js
 // 2-step approach with Supabase cache (2 hour expiry)
+
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthUser, checkRateLimit, unauthorizedResponse, rateLimitResponse } from '@/lib/api-auth';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,6 +11,14 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(request) {
+  // Auth check
+  const { user, error: authError } = await getAuthUser(request);
+  if (!user) return unauthorizedResponse();
+
+  // Rate limit: 10 AI analysis per hour per user
+  const { allowed, remaining, resetAt } = checkRateLimit(user.id, 'ai-analysis', 10);
+  if (!allowed) return rateLimitResponse(resetAt);
+
   const { ticker } = await request.json();
 
   if (!ticker) {

@@ -1,6 +1,7 @@
 // app/api/top-stocks/route.js
 // Hybrid: Yahoo Finance real data + Gemini for explanations only
 import { NextResponse } from 'next/server';
+import { getAuthUser, checkRateLimit, unauthorizedResponse, rateLimitResponse } from '@/lib/api-auth';
 
 // 50+ most active IDX stocks
 const IDX_TICKERS = [
@@ -17,6 +18,14 @@ const IDX_TICKERS = [
 ];
 
 export async function POST(request) {
+  // Auth check
+  const { user, error: authError } = await getAuthUser(request);
+  if (!user) return unauthorizedResponse();
+
+  // Rate limit: 5 top-stocks requests per hour per user
+  const { allowed, remaining, resetAt } = checkRateLimit(user.id, 'top-stocks', 5);
+  if (!allowed) return rateLimitResponse(resetAt);
+
   const { month, year } = await request.json();
 
   if (!month || !year) {
@@ -47,6 +56,7 @@ export async function POST(request) {
     // Fetch price data for all tickers in parallel (batched)
     const batchSize = 15;
     const allResults = [];
+    const cookieHeader = request.headers.get('cookie') || '';
 
     for (let i = 0; i < IDX_TICKERS.length; i += batchSize) {
       const batch = IDX_TICKERS.slice(i, i + batchSize);
@@ -54,7 +64,9 @@ export async function POST(request) {
         batch.map(async (ticker) => {
           try {
             const url = `${getBaseUrl(request)}/api/chart-data?ticker=${ticker}.JK&period1=${period1}&period2=${period2}`;
-            const res = await fetch(url);
+            const res = await fetch(url, {
+              headers: { cookie: cookieHeader },
+            });
             if (!res.ok) return null;
             const data = await res.json();
             if (!data || data.length < 2) return null;
