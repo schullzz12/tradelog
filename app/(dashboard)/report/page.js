@@ -566,15 +566,7 @@ export default function ReportPage() {
             </div>
 
             {topStocksLoading && (
-              <div className="flex items-center justify-center py-8">
-                <div className="flex items-center gap-3 text-zinc-500">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span className="text-xs">Mencari saham top bulan ini dengan AI...</span>
-                </div>
-              </div>
+              <TopStocksSkeleton />
             )}
 
             {topStocksError && (
@@ -929,6 +921,54 @@ function PortfolioVsIHSG({ stats, ihsgData, monthLabel }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function TopStocksSkeleton() {
+  const [msgIdx, setMsgIdx] = useState(0);
+  const messages = [
+    "Mencari data top gainers...",
+    "Menganalisis pergerakan harga...",
+    "Menyusun ranking saham...",
+    "Hampir selesai...",
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMsgIdx((prev) => (prev < messages.length - 1 ? prev + 1 : prev));
+    }, 3500);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative w-4 h-4">
+          <div className="absolute inset-0 rounded-full border-2 border-emerald-500/20"></div>
+          <div className="absolute inset-0 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin"></div>
+        </div>
+        <span className="text-xs text-emerald-400/80 transition-all duration-300">
+          {messages[msgIdx]}
+        </span>
+      </div>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div
+          key={i}
+          className="flex items-start gap-3 p-3 rounded-lg bg-[#111118]"
+          style={{ opacity: 1 - (i - 1) * 0.15 }}
+        >
+          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-[#1c1c28] animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-14 rounded bg-[#1c1c28] animate-pulse" />
+              <div className="h-3 w-10 rounded bg-[#1c1c28] animate-pulse" />
+              <div className="h-3 w-24 rounded bg-[#1c1c28] animate-pulse" />
+            </div>
+            <div className="h-3 rounded bg-[#1c1c28] animate-pulse" style={{ maxWidth: `${85 - i * 8}%` }} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

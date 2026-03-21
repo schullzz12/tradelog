@@ -1,6 +1,20 @@
 // app/api/top-stocks/route.js
-// Fetch top 5 IDX stocks of the month using Gemini + Google Search grounding
+// Hybrid: Yahoo Finance real data + Gemini for explanations only
 import { NextResponse } from 'next/server';
+
+// 50+ most active IDX stocks
+const IDX_TICKERS = [
+  'BBCA','BBRI','BMRI','BBNI','BRIS','BBTN','BTPS','BJTM',
+  'TLKM','ASII','GOTO','BREN','AMMN','ANTM','INDF','ICBP',
+  'UNVR','HMSP','GGRM','KLBF','SIDO','MAPI','ACES','ERAA',
+  'MDKA','ADRO','ITMG','PTBA','MEDC','INCO','TINS','NCKL',
+  'CPIN','JPFA','MAIN','TBIG','TOWR','EXCL','ISAT','MTEL',
+  'SMGR','INTP','WIKA','WSKT','PTPP','JSMR','PGAS','AKRA',
+  'ESSA','BRPT','TPIA','INKP','SMMA','BUKA','EMTK','SCMA',
+  'ARTO','BBYB','FILM','PGEO','MBMA','HRUM','DSSA','MYOR',
+  'UNTR','AALI','LSIP','TAPG','RAJA','ARKO','SRTG','BSDE',
+  'CTRA','SMRA','PWON','DMAS','PANI',
+];
 
 export async function POST(request) {
   const { month, year } = await request.json();
@@ -9,169 +23,189 @@ export async function POST(request) {
     return NextResponse.json({ error: 'month and year required' }, { status: 400 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
-  }
-
-  const geminiUrl = (model) =>
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
   const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    'Januari','Februari','Maret','April','Mei','Juni',
+    'Juli','Agustus','September','Oktober','November','Desember',
   ];
-  const monthName = monthNames[parseInt(month) - 1] || month;
+  const monthIdx = parseInt(month) - 1;
+  const monthName = monthNames[monthIdx] || month;
 
   try {
-    // STEP 1: Search for top performing IDX stocks
-    const searchPrompt = `Cari 5 saham di Bursa Efek Indonesia (IDX) yang mengalami kenaikan harga paling besar selama bulan ${monthName} ${year}. 
+    // Calculate date range for the month
+    const monthStart = new Date(parseInt(year), monthIdx, 1);
+    const monthEnd = new Date(parseInt(year), monthIdx + 1, 0);
+    const now = new Date();
+    const end = monthEnd > now ? now : monthEnd;
 
-Untuk setiap saham berikan:
-1. Kode saham (ticker)
-2. Nama perusahaan
-3. Persentase kenaikan harga selama bulan tersebut
-4. Harga awal dan akhir bulan
-5. Alasan utama kenapa saham tersebut naik (berita, laporan keuangan, sentimen pasar, dll)
+    // Add buffer days to ensure we get trading data
+    const period1 = Math.floor(monthStart.getTime() / 1000) - 3 * 86400;
+    const period2 = Math.floor(end.getTime() / 1000) + 86400;
 
-Fokus pada saham yang benar-benar naik signifikan. Gunakan data dari sumber terpercaya seperti IDX, CNBC Indonesia, Kontan, Bisnis.com.`;
+    const startStr = monthStart.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
 
-    const searchRes = await fetch(geminiUrl('gemini-2.5-flash'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: searchPrompt }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 3000 },
-      }),
-    });
+    // Fetch price data for all tickers in parallel (batched)
+    const batchSize = 15;
+    const allResults = [];
 
-    if (!searchRes.ok) {
-      const errText = await searchRes.text();
-      console.error('Step 1 error:', searchRes.status, errText);
-      return NextResponse.json({ error: `Search failed: ${searchRes.status}` }, { status: 502 });
+    for (let i = 0; i < IDX_TICKERS.length; i += batchSize) {
+      const batch = IDX_TICKERS.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async (ticker) => {
+          try {
+            const url = `${getBaseUrl(request)}/api/chart-data?ticker=${ticker}.JK&period1=${period1}&period2=${period2}`;
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (!data || data.length < 2) return null;
+
+            // Find first trading day in/near month start
+            const startCandle = data.find((d) => d.time >= startStr) || data[0];
+            // Find last trading day in/before month end
+            const endCandidates = data.filter((d) => d.time <= endStr);
+            const endCandle = endCandidates.length > 0 ? endCandidates[endCandidates.length - 1] : data[data.length - 1];
+
+            if (!startCandle || !endCandle || !startCandle.close || !endCandle.close) return null;
+
+            const changePct = ((endCandle.close - startCandle.close) / startCandle.close) * 100;
+
+            return {
+              ticker,
+              price_start: Math.round(startCandle.close),
+              price_end: Math.round(endCandle.close),
+              change_percent: Math.round(changePct * 10) / 10,
+            };
+          } catch (err) {
+            return null;
+          }
+        })
+      );
+      allResults.push(...batchResults);
     }
 
-    const searchData = await searchRes.json();
-    const searchParts = searchData?.candidates?.[0]?.content?.parts || [];
-    const searchText = searchParts
-      .filter((p) => p.text)
-      .map((p) => p.text)
-      .join('\n');
+    // Filter valid, positive results and sort by change
+    const ranked = allResults
+      .filter((r) => r && r.change_percent > 0)
+      .sort((a, b) => b.change_percent - a.change_percent)
+      .slice(0, 5);
 
-    if (!searchText) {
-      return NextResponse.json({ error: 'No search results' }, { status: 502 });
-    }
-
-    // Extract sources
-    let sources = [];
-    const groundingMeta = searchData?.candidates?.[0]?.groundingMetadata;
-    if (groundingMeta?.groundingChunks) {
-      sources = groundingMeta.groundingChunks
-        .filter((c) => c.web)
-        .map((c) => ({ title: c.web.title || '', uri: c.web.uri || '' }))
-        .slice(0, 6);
-    }
-
-    // STEP 2: Structure into JSON
-    const structurePrompt = `Berdasarkan data berikut tentang saham-saham IDX yang naik paling banyak di bulan ${monthName} ${year}, buat JSON.
-
-DATA:
-${searchText.slice(0, 6000)}
-
-Buat JSON dengan struktur EXACT seperti ini:
-{
-  "month": "${monthName}",
-  "year": ${year},
-  "stocks": [
-    {
-      "ticker": "KODE",
-      "company_name": "Nama Perusahaan Lengkap",
-      "change_percent": 45.5,
-      "price_start": 1000,
-      "price_end": 1455,
-      "reason": "Penjelasan singkat 1-2 kalimat kenapa saham ini naik"
-    }
-  ]
-}
-
-PENTING: 
-- Urutkan dari kenaikan terbesar ke terkecil
-- change_percent harus angka (bukan string)
-- price_start dan price_end harus angka (bukan string), kalau tidak tersedia bisa null
-- Maksimal 5 saham
-- Pastikan output valid JSON`;
-
-    const structureRes = await fetch(geminiUrl('gemini-2.5-flash'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: structurePrompt }] }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 2000,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
-
-    if (!structureRes.ok) {
-      const errText = await structureRes.text();
-      console.error('Step 2 error:', structureRes.status, errText);
-      return NextResponse.json({ error: `Structure failed: ${structureRes.status}` }, { status: 502 });
-    }
-
-    const structureData = await structureRes.json();
-    const structureParts = structureData?.candidates?.[0]?.content?.parts || [];
-    const jsonText = structureParts
-      .filter((p) => p.text)
-      .map((p) => p.text)
-      .join('');
-
-    if (!jsonText) {
-      return NextResponse.json({ error: 'No structured response' }, { status: 502 });
-    }
-
-    // Parse JSON
-    let result;
-    try {
-      result = JSON.parse(jsonText);
-    } catch (e) {
-      try {
-        const match = jsonText.match(/\{[\s\S]*\}/);
-        if (match) result = JSON.parse(match[0]);
-      } catch (e2) {
-        console.error('JSON parse failed:', e2.message);
-      }
-    }
-
-    if (!result || !Array.isArray(result.stocks)) {
+    if (ranked.length === 0) {
       return NextResponse.json({
         month: monthName,
-        year,
+        year: parseInt(year),
         stocks: [],
-        sources,
-        error: 'Could not parse top stocks data',
+        sources: [],
       });
     }
 
-    // Sanitize
-    result.stocks = result.stocks.slice(0, 5).map((s) => ({
-      ticker: (s.ticker || '').toUpperCase(),
-      company_name: s.company_name || s.ticker,
-      change_percent: typeof s.change_percent === 'number' ? s.change_percent : parseFloat(s.change_percent) || 0,
-      price_start: typeof s.price_start === 'number' ? s.price_start : null,
-      price_end: typeof s.price_end === 'number' ? s.price_end : null,
-      reason: s.reason || 'Tidak ada data',
-    }));
+    // Use Gemini to add company names + reasons (1 fast call, no search needed)
+    const enriched = await enrichWithGemini(ranked, monthName, year);
 
-    result.sources = sources;
-
-    return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
-    });
+    return NextResponse.json(
+      {
+        month: monthName,
+        year: parseInt(year),
+        stocks: enriched,
+        sources: [{ title: 'Yahoo Finance', uri: 'https://finance.yahoo.com' }],
+      },
+      { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' } }
+    );
   } catch (err) {
     console.error('Top stocks error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// ── Get base URL for internal API calls ─────────────────────────────
+
+function getBaseUrl(request) {
+  const host = request.headers.get('host') || 'localhost:3000';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  return `${protocol}://${host}`;
+}
+
+// ── Gemini: enrich with company names + reasons ─────────────────────
+
+async function enrichWithGemini(stocks, monthName, year) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    // Fallback without AI
+    return stocks.map((s) => ({
+      ...s,
+      company_name: s.ticker,
+      reason: `Naik ${s.change_percent}% selama ${monthName} ${year}.`,
+    }));
+  }
+
+  const tickerList = stocks.map((s) => `${s.ticker} (${s.change_percent > 0 ? '+' : ''}${s.change_percent}%)`).join(', ');
+
+  const prompt = `Berikut 5 saham IDX yang naik paling banyak di bulan ${monthName} ${year}: ${tickerList}
+
+Untuk setiap saham, berikan:
+1. Nama perusahaan lengkap (contoh: PT Bank Central Asia Tbk)
+2. Alasan spesifik kenapa saham tersebut naik (berita, laporan keuangan, aksi korporasi, sentimen sektor)
+
+Jawab dalam JSON array saja, tanpa teks lain:
+[
+  {"ticker": "BBCA", "company_name": "PT Bank Central Asia Tbk", "reason": "Penjelasan 1-2 kalimat"},
+  ...
+]`;
+
+  try {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    const res = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1500 },
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Gemini ${res.status}`);
+
+    const data = await res.json();
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    let rawText = parts.filter((p) => p.text).map((p) => p.text).join('');
+
+    if (!rawText) throw new Error('Empty response');
+
+    // Clean and parse
+    rawText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const firstBracket = rawText.indexOf('[');
+    const lastBracket = rawText.lastIndexOf(']');
+    if (firstBracket >= 0 && lastBracket > firstBracket) {
+      rawText = rawText.slice(firstBracket, lastBracket + 1);
+    }
+    rawText = rawText.replace(/,\s*([}\]])/g, '$1');
+
+    let aiData;
+    try {
+      aiData = JSON.parse(rawText);
+    } catch (e) {
+      throw new Error('JSON parse failed');
+    }
+
+    if (!Array.isArray(aiData)) throw new Error('Not an array');
+
+    // Merge AI data with price data
+    return stocks.map((s) => {
+      const ai = aiData.find((a) => a.ticker?.toUpperCase() === s.ticker);
+      return {
+        ...s,
+        company_name: ai?.company_name || s.ticker,
+        reason: ai?.reason || `Naik ${s.change_percent}% selama ${monthName} ${year}.`,
+      };
+    });
+  } catch (err) {
+    console.error('Gemini enrich error:', err.message);
+    // Fallback: return data without AI enrichment
+    return stocks.map((s) => ({
+      ...s,
+      company_name: s.ticker,
+      reason: `Naik ${s.change_percent}% selama ${monthName} ${year}.`,
+    }));
   }
 }
