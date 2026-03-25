@@ -64,6 +64,75 @@ export default function TradeEntryForm({ trade = null }) {
     setLoading(true);
     setError(null);
 
+    // ── Input Validation ──
+    const ticker = form.ticker.toUpperCase().trim();
+    const entryPrice = Number(form.entry_price);
+    const exitPrice = form.exit_price ? Number(form.exit_price) : null;
+    const lots = Number(form.shares);
+    const shares = lots * 100;
+
+    if (!ticker || ticker.length === 0) {
+      setError("Ticker saham wajib diisi");
+      setLoading(false);
+      return;
+    }
+    if (ticker.length > 10) {
+      setError("Ticker terlalu panjang");
+      setLoading(false);
+      return;
+    }
+    if (!entryPrice || entryPrice <= 0) {
+      setError("Harga entry harus lebih dari 0");
+      setLoading(false);
+      return;
+    }
+    if (entryPrice > 100000000) {
+      setError("Harga entry tidak valid");
+      setLoading(false);
+      return;
+    }
+    if (exitPrice !== null && (exitPrice <= 0 || exitPrice > 100000000)) {
+      setError("Harga exit tidak valid");
+      setLoading(false);
+      return;
+    }
+    if (!lots || lots <= 0) {
+      setError("Jumlah lot harus lebih dari 0");
+      setLoading(false);
+      return;
+    }
+    if (!Number.isInteger(lots)) {
+      setError("Jumlah lot harus bilangan bulat");
+      setLoading(false);
+      return;
+    }
+    if (!form.entry_date) {
+      setError("Tanggal entry wajib diisi");
+      setLoading(false);
+      return;
+    }
+    const entryDate = new Date(form.entry_date);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (entryDate > today) {
+      setError("Tanggal entry tidak boleh di masa depan");
+      setLoading(false);
+      return;
+    }
+    if (form.exit_date) {
+      const exitDate = new Date(form.exit_date);
+      if (exitDate > today) {
+        setError("Tanggal exit tidak boleh di masa depan");
+        setLoading(false);
+        return;
+      }
+      if (exitDate < entryDate) {
+        setError("Tanggal exit harus setelah tanggal entry");
+        setLoading(false);
+        return;
+      }
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -76,15 +145,15 @@ export default function TradeEntryForm({ trade = null }) {
 
     const payload = {
       user_id: user.id,
-      ticker: form.ticker.toUpperCase().trim(),
+      ticker: ticker,
       type: form.type,
-      entry_price: Number(form.entry_price),
-      exit_price: form.exit_price ? Number(form.exit_price) : null,
-      shares: Number(form.shares) * 100,
+      entry_price: entryPrice,
+      exit_price: exitPrice,
+      shares: shares,
       entry_date: form.entry_date,
       exit_date: form.exit_date || null,
       status: form.status,
-      notes: form.notes || null,
+      notes: form.notes?.slice(0, 5000) || null,
       setup_tag: form.setup_tag || null,
       emotion_tag: form.emotion_tag || null,
       pnl: previewPnl,
