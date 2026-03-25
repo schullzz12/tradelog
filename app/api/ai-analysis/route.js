@@ -1,22 +1,51 @@
 // app/api/ai-analysis/route.js
-// 2-step approach with Supabase cache (2 hour expiry)
-
+// 2-step approach with OpenRouter (GPT-4o-mini) + Supabase cache (2 hour expiry)
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getAuthUser, checkRateLimit, unauthorizedResponse, rateLimitResponse } from '@/lib/api-auth';
+import { checkRateLimit, rateLimitResponse } from '@/lib/api-auth';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export async function POST(request) {
-  // Auth check
-  const { user, error: authError } = await getAuthUser(request);
-  if (!user) return unauthorizedResponse();
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const MODEL = 'openai/gpt-4o-mini';
 
-  // Rate limit: 10 AI analysis per hour per user
-  const { allowed, remaining, resetAt } = checkRateLimit(user.id, 'ai-analysis', 10);
+async function callOpenRouter(messages, options = {}) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
+
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://tradelog-omega.vercel.app',
+      'X-Title': 'TradeLog AI Analysis',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages,
+      temperature: options.temperature ?? 0.3,
+      max_tokens: options.maxTokens ?? 2000,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('OpenRouter error:', res.status, errText);
+    throw new Error(`OpenRouter returned ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+export async function POST(request) {
+  // Rate limit by IP: 10 per hour
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const { allowed, resetAt } = checkRateLimit(ip, 'ai-analysis', 10);
   if (!allowed) return rateLimitResponse(resetAt);
 
   const { ticker } = await request.json();
@@ -42,31 +71,33 @@ export async function POST(request) {
       const twoHours = 2 * 60 * 60 * 1000;
 
       if (cacheAge < twoHours) {
-        // Cache hit — return cached analysis
         return NextResponse.json(cached.analysis, {
           headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200' },
         });
       }
     }
   } catch (err) {
-    // Cache miss or error — continue to fetch from Gemini
     console.log('Cache miss for', tickerUpper);
   }
 
   // ═══════════════════════════════════════════
-  // CACHE MISS — FETCH FROM GEMINI
+  // CACHE MISS — FETCH FROM OPENROUTER
   // ═══════════════════════════════════════════
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 });
+    return NextResponse.json({ error: 'OPENROUTER_API_KEY not configured' }, { status: 500 });
   }
 
-  const geminiUrl = (model) =>
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
   try {
-    // STEP 1: Search for latest info (free text)
-    const searchPrompt = `Cari informasi terbaru tentang saham ${tickerUpper} yang listed di Bursa Efek Indonesia (IDX). Berikan:
+    // STEP 1: Search for latest info
+    const searchText = await callOpenRouter([
+      {
+        role: 'system',
+        content: 'Kamu adalah analis saham Indonesia yang ahli. Berikan informasi terbaru dan akurat tentang saham yang ditanyakan. Jawab dalam bahasa Indonesia.',
+      },
+      {
+        role: 'user',
+        content: `Cari informasi terbaru tentang saham ${tickerUpper} yang listed di Bursa Efek Indonesia (IDX). Berikan:
 
 1. Nama lengkap perusahaan
 2. Berita terbaru yang mempengaruhi harga saham (minimal 2-3 berita)
@@ -75,48 +106,23 @@ export async function POST(request) {
 5. Risiko dan katalis potensial
 6. Sentiment pasar saat ini
 
-Berikan informasi selengkap mungkin dalam bahasa Indonesia.`;
-
-    const searchRes = await fetch(geminiUrl('gemini-2.5-flash'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: searchPrompt }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
-      }),
-    });
-
-    if (!searchRes.ok) {
-      const errText = await searchRes.text();
-      console.error('Step 1 error:', searchRes.status, errText);
-      return NextResponse.json({ error: `Search failed: ${searchRes.status}` }, { status: 502 });
-    }
-
-    const searchData = await searchRes.json();
-
-    const searchParts = searchData?.candidates?.[0]?.content?.parts || [];
-    const searchText = searchParts
-      .filter((p) => p.text)
-      .map((p) => p.text)
-      .join('\n');
+Berikan informasi selengkap mungkin dalam bahasa Indonesia.`,
+      },
+    ], { temperature: 0.3, maxTokens: 2000 });
 
     if (!searchText) {
       return NextResponse.json({ error: 'No search results' }, { status: 502 });
     }
 
-    // Extract grounding sources
-    let sources = [];
-    const groundingMeta = searchData?.candidates?.[0]?.groundingMetadata;
-    if (groundingMeta?.groundingChunks) {
-      sources = groundingMeta.groundingChunks
-        .filter((c) => c.web)
-        .map((c) => ({ title: c.web.title || '', uri: c.web.uri || '' }))
-        .slice(0, 6);
-    }
-
-    // STEP 2: Structure into JSON (no search tool)
-    const structurePrompt = `Berdasarkan data berikut tentang saham ${tickerUpper}, buat analisis dalam format JSON.
+    // STEP 2: Structure into JSON
+    const jsonText = await callOpenRouter([
+      {
+        role: 'system',
+        content: 'Kamu adalah data formatter. Output HANYA valid JSON, tanpa markdown, tanpa backticks, tanpa teks lain.',
+      },
+      {
+        role: 'user',
+        content: `Berdasarkan data berikut tentang saham ${tickerUpper}, buat analisis dalam format JSON.
 
 DATA:
 ${searchText.slice(0, 6000)}
@@ -144,46 +150,29 @@ Buat JSON dengan struktur EXACT seperti ini:
   "key_insight": "satu insight paling penting untuk trader"
 }
 
-PENTING: Isi semua field berdasarkan data di atas. Jika data tidak tersedia, tulis "Data tidak tersedia". Pastikan output adalah valid JSON.`;
-
-    const structureRes = await fetch(geminiUrl('gemini-2.5-flash'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: structurePrompt }] }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 3000,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
-
-    if (!structureRes.ok) {
-      const errText = await structureRes.text();
-      console.error('Step 2 error:', structureRes.status, errText);
-      return NextResponse.json({ error: `Structure failed: ${structureRes.status}` }, { status: 502 });
-    }
-
-    const structureData = await structureRes.json();
-
-    const structureParts = structureData?.candidates?.[0]?.content?.parts || [];
-    const jsonText = structureParts
-      .filter((p) => p.text)
-      .map((p) => p.text)
-      .join('');
+PENTING: Isi semua field berdasarkan data di atas. Jika data tidak tersedia, tulis "Data tidak tersedia". Output HANYA valid JSON.`,
+      },
+    ], { temperature: 0.1, maxTokens: 3000 });
 
     if (!jsonText) {
       return NextResponse.json({ error: 'No structured response' }, { status: 502 });
     }
 
-    // Parse JSON
+    // Parse JSON — clean up potential markdown fences
+    let cleaned = jsonText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+    cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+
     let analysis;
     try {
-      analysis = JSON.parse(jsonText);
+      analysis = JSON.parse(cleaned);
     } catch (e) {
       try {
-        const match = jsonText.match(/\{[\s\S]*\}/);
+        const match = cleaned.match(/\{[\s\S]*\}/);
         if (match) analysis = JSON.parse(match[0]);
       } catch (e2) {
         console.error('JSON parse failed:', e2.message);
@@ -202,16 +191,15 @@ PENTING: Isi semua field berdasarkan data di atas. Jika data tidak tersedia, tul
         risks: [],
         catalysts: [],
         key_insight: 'Analisis tersedia tapi format tidak dapat diproses.',
-        sources,
+        sources: [],
         raw: true,
       });
     }
 
-    // Ensure fields exist + sanitize types
+    // Ensure fields exist + sanitize
     analysis.ticker = analysis.ticker || tickerUpper;
     analysis.sentiment = ['Bullish', 'Bearish', 'Neutral'].includes(analysis.sentiment) ? analysis.sentiment : 'Neutral';
     
-    // Force sentiment_score to be a valid number 1-10
     let score = parseFloat(analysis.sentiment_score);
     if (isNaN(score) || score < 1 || score > 10) score = 5;
     analysis.sentiment_score = Math.round(score);
@@ -224,15 +212,11 @@ PENTING: Isi semua field berdasarkan data di atas. Jika data tidak tersedia, tul
     analysis.financials = analysis.financials || { summary: 'Data tidak tersedia' };
     analysis.key_insight = (typeof analysis.key_insight === 'string' && analysis.key_insight !== 'Data tidak tersedia')
       ? analysis.key_insight : null;
-    analysis.sources = sources;
+    analysis.sources = [];
 
-    // Don't cache if most data is missing
+    // Save to cache
     const hasRealData = analysis.news.length > 0 || analysis.risks.length > 0 || (analysis.financials.revenue && analysis.financials.revenue !== 'Data tidak tersedia');
-    
 
-    // ═══════════════════════════════════════════
-    // SAVE TO CACHE (only if we have real data)
-    // ═══════════════════════════════════════════
     if (hasRealData) {
       try {
         await supabaseAdmin

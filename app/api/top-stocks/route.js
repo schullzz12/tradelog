@@ -1,7 +1,7 @@
 // app/api/top-stocks/route.js
 // Hybrid: Yahoo Finance real data + Gemini for explanations only
 import { NextResponse } from 'next/server';
-import { getAuthUser, checkRateLimit, unauthorizedResponse, rateLimitResponse } from '@/lib/api-auth';
+import { checkRateLimit, rateLimitResponse } from '@/lib/api-auth';
 
 // 50+ most active IDX stocks
 const IDX_TICKERS = [
@@ -18,12 +18,9 @@ const IDX_TICKERS = [
 ];
 
 export async function POST(request) {
-  // Auth check
-  const { user, error: authError } = await getAuthUser(request);
-  if (!user) return unauthorizedResponse();
-
-  // Rate limit: 5 top-stocks requests per hour per user
-  const { allowed, remaining, resetAt } = checkRateLimit(user.id, 'top-stocks', 5);
+  // Rate limit by IP: 5 per hour
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const { allowed, resetAt } = checkRateLimit(ip, 'top-stocks', 5);
   if (!allowed) return rateLimitResponse(resetAt);
 
   const { month, year } = await request.json();
@@ -40,23 +37,19 @@ export async function POST(request) {
   const monthName = monthNames[monthIdx] || month;
 
   try {
-    // Calculate date range for the month
     const monthStart = new Date(parseInt(year), monthIdx, 1);
     const monthEnd = new Date(parseInt(year), monthIdx + 1, 0);
     const now = new Date();
     const end = monthEnd > now ? now : monthEnd;
 
-    // Add buffer days to ensure we get trading data
     const period1 = Math.floor(monthStart.getTime() / 1000) - 3 * 86400;
     const period2 = Math.floor(end.getTime() / 1000) + 86400;
 
     const startStr = monthStart.toISOString().split('T')[0];
     const endStr = end.toISOString().split('T')[0];
 
-    // Fetch price data for all tickers in parallel (batched)
     const batchSize = 15;
     const allResults = [];
-    const cookieHeader = request.headers.get('cookie') || '';
 
     for (let i = 0; i < IDX_TICKERS.length; i += batchSize) {
       const batch = IDX_TICKERS.slice(i, i + batchSize);
@@ -64,16 +57,12 @@ export async function POST(request) {
         batch.map(async (ticker) => {
           try {
             const url = `${getBaseUrl(request)}/api/chart-data?ticker=${ticker}.JK&period1=${period1}&period2=${period2}`;
-            const res = await fetch(url, {
-              headers: { cookie: cookieHeader },
-            });
+            const res = await fetch(url);
             if (!res.ok) return null;
             const data = await res.json();
             if (!data || data.length < 2) return null;
 
-            // Find first trading day in/near month start
             const startCandle = data.find((d) => d.time >= startStr) || data[0];
-            // Find last trading day in/before month end
             const endCandidates = data.filter((d) => d.time <= endStr);
             const endCandle = endCandidates.length > 0 ? endCandidates[endCandidates.length - 1] : data[data.length - 1];
 
@@ -95,7 +84,6 @@ export async function POST(request) {
       allResults.push(...batchResults);
     }
 
-    // Filter valid, positive results and sort by change
     const ranked = allResults
       .filter((r) => r && r.change_percent > 0)
       .sort((a, b) => b.change_percent - a.change_percent)
@@ -110,7 +98,6 @@ export async function POST(request) {
       });
     }
 
-    // Use Gemini to add company names + reasons (1 fast call, no search needed)
     const enriched = await enrichWithGemini(ranked, monthName, year);
 
     return NextResponse.json(
@@ -128,20 +115,15 @@ export async function POST(request) {
   }
 }
 
-// ── Get base URL for internal API calls ─────────────────────────────
-
 function getBaseUrl(request) {
   const host = request.headers.get('host') || 'localhost:3000';
   const protocol = host.includes('localhost') ? 'http' : 'https';
   return `${protocol}://${host}`;
 }
 
-// ── Gemini: enrich with company names + reasons ─────────────────────
-
 async function enrichWithGemini(stocks, monthName, year) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    // Fallback without AI
     return stocks.map((s) => ({
       ...s,
       company_name: s.ticker,
@@ -184,7 +166,6 @@ Jawab dalam JSON array saja, tanpa teks lain:
 
     if (!rawText) throw new Error('Empty response');
 
-    // Clean and parse
     rawText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
     const firstBracket = rawText.indexOf('[');
     const lastBracket = rawText.lastIndexOf(']');
@@ -202,7 +183,6 @@ Jawab dalam JSON array saja, tanpa teks lain:
 
     if (!Array.isArray(aiData)) throw new Error('Not an array');
 
-    // Merge AI data with price data
     return stocks.map((s) => {
       const ai = aiData.find((a) => a.ticker?.toUpperCase() === s.ticker);
       return {
@@ -213,7 +193,6 @@ Jawab dalam JSON array saja, tanpa teks lain:
     });
   } catch (err) {
     console.error('Gemini enrich error:', err.message);
-    // Fallback: return data without AI enrichment
     return stocks.map((s) => ({
       ...s,
       company_name: s.ticker,
