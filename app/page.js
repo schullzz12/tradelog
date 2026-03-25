@@ -90,6 +90,13 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── APP PREVIEW — Animated Multi-Screen ── */}
+      <section className="py-8 pb-12">
+        <div className="max-w-[1100px] mx-auto px-6">
+          <AnimatedAppPreview />
+        </div>
+      </section>
+
       {/* ── PAIN POINTS ── */}
       <section className="py-12" id="kenapa">
         <div className="max-w-[1100px] mx-auto px-6">
@@ -260,52 +267,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── APP PREVIEW ── */}
-      <section className="py-8 pb-12">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <div className="max-w-[900px] mx-auto rounded-2xl border border-[#2a2a3a] bg-[#111118] overflow-hidden shadow-2xl shadow-black/40">
-            {/* Browser bar */}
-            <div className="px-4 py-3 bg-[#0d0d14] border-b border-[#2a2a3a] flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
-              <div className="flex-1 ml-3 h-6 rounded-md bg-[#16161f] flex items-center px-3">
-                <span className="text-[11px] text-zinc-600 font-mono">tradelog.co.id/dashboard</span>
-              </div>
-            </div>
-            {/* Dashboard mock */}
-            <div className="p-6">
-              <div className="grid grid-cols-4 gap-3 mb-4">
-                {[
-                  { label: "Total P&L", value: "+Rp 53.7M", color: "text-emerald-400" },
-                  { label: "Win Rate", value: "75.0%", color: "text-white" },
-                  { label: "Grade", value: "A+", color: "text-amber-400" },
-                  { label: "vs IHSG", value: "OUTPERFORM", color: "text-emerald-400 text-sm" },
-                ].map((card, i) => (
-                  <div key={i} className="bg-[#16161f] border border-[#2a2a3a] rounded-lg p-3">
-                    <div className="text-[9px] text-zinc-600 uppercase tracking-wider mb-1">{card.label}</div>
-                    <div className={`text-base font-semibold font-mono ${card.color}`}>{card.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-[#16161f] border border-[#2a2a3a] rounded-lg p-4">
-                <div className="text-[10px] text-zinc-600 mb-2">Equity Curve</div>
-                <svg viewBox="0 0 800 100" className="w-full h-[60px]">
-                  <defs>
-                    <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M0,85 L80,82 L160,78 L240,75 L320,70 L400,55 L480,48 L560,35 L640,25 L720,18 L800,8" fill="none" stroke="#10b981" strokeWidth="2" />
-                  <path d="M0,85 L80,82 L160,78 L240,75 L320,70 L400,55 L480,48 L560,35 L640,25 L720,18 L800,8 L800,100 L0,100Z" fill="url(#eqGrad)" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ── PRICING ── */}
       <section className="py-12" id="harga">
         <div className="max-w-[1100px] mx-auto px-6">
@@ -391,6 +352,282 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// ── Animated App Preview Component ──────────────────────────────────
+
+function AnimatedAppPreview() {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const screens = ["dashboard", "trades", "portfolio", "report", "performance"];
+  const urls = [
+    "tradelog.co.id/dashboard",
+    "tradelog.co.id/trades",
+    "tradelog.co.id/portfolio",
+    "tradelog.co.id/report",
+    "tradelog.co.id/performance",
+  ];
+  const navItems = [
+    { label: "Dashboard", icon: "M3,3H10V10H3ZM14,3H21V10H14ZM14,14H21V21H14ZM3,14H10V21H3Z" },
+    { label: "Trades", icon: "M12,20V10M18,20V4M6,20V16" },
+    { label: "Portfolio", icon: "M21,12V7H5A2,2,0,0,1,5,3H19V7M3,5V19A2,2,0,0,0,5,21H21V16" },
+    { label: "Rapot", icon: "M14,2H6A2,2,0,0,0,4,4V20A2,2,0,0,0,6,22H18A2,2,0,0,0,20,20V8ZM14,2V8H20" },
+    { label: "Insights", icon: "M22,7L13.5,15.5L8.5,10.5L2,17M16,7H22V13" },
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveIdx((prev) => (prev + 1) % 5);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const screenClass = (i) =>
+    `absolute inset-0 p-4 transition-all duration-500 ${
+      i === activeIdx ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"
+    }`;
+
+  const MiniCard = ({ label, value, color }) => (
+    <div className="bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+      <div className="text-[8px] text-zinc-600 uppercase tracking-wider mb-1">{label}</div>
+      <div className={`text-sm font-semibold font-mono ${color || "text-white"}`}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-[900px] mx-auto rounded-2xl border border-[#2a2a3a] bg-[#0a0a0f] overflow-hidden shadow-2xl shadow-black/50">
+      {/* Browser bar */}
+      <div className="px-4 py-2.5 bg-[#0d0d14] border-b border-[#2a2a3a] flex items-center gap-2">
+        <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
+        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
+        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
+        <div className="flex-1 ml-3 h-6 rounded-md bg-[#16161f] flex items-center px-3">
+          <span className="text-[11px] text-zinc-600 font-mono transition-all duration-300">{urls[activeIdx]}</span>
+        </div>
+      </div>
+
+      <div className="flex min-h-[400px]">
+        {/* Sidebar */}
+        <div className="w-[160px] bg-[#111118] border-r border-[#2a2a3a] p-3 flex-shrink-0 hidden sm:block">
+          <div className="flex items-center gap-2 px-2 pb-3 mb-2 border-b border-[#2a2a3a]">
+            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                <polyline points="16 7 22 7 22 13" />
+              </svg>
+            </div>
+            <span className="text-xs font-semibold text-white">TradeLog</span>
+          </div>
+          <div className="space-y-0.5">
+            {navItems.map((item, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveIdx(i)}
+                className={`w-full flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[11px] transition-all duration-300 border ${
+                  i === activeIdx
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "text-zinc-500 hover:text-zinc-300 border-transparent"
+                }`}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={item.icon} />
+                </svg>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content area */}
+        <div className="flex-1 relative overflow-hidden">
+          {/* 0: Dashboard */}
+          <div className={screenClass(0)}>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <MiniCard label="Total P&L" value="+Rp 53.8M" color="text-emerald-400" />
+              <MiniCard label="Win Rate" value="75.0%" />
+              <MiniCard label="Profit Factor" value="64.03" />
+              <MiniCard label="Total Trades" value="7" />
+            </div>
+            <div className="bg-[#16161f] border border-[#2a2a3a] rounded-lg p-3 mb-3">
+              <div className="text-[9px] text-zinc-600 mb-1.5">Equity Curve — +Rp 53.780.000</div>
+              <svg viewBox="0 0 600 80" className="w-full h-[60px]">
+                <defs><linearGradient id="eqG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.25" /><stop offset="100%" stopColor="#10b981" stopOpacity="0" /></linearGradient></defs>
+                <path d="M0,70 C60,68 120,64 180,58 C240,52 300,45 360,34 C420,26 480,18 540,12 C570,9 600,6 600,6 L600,80 L0,80Z" fill="url(#eqG)" />
+                <path d="M0,70 C60,68 120,64 180,58 C240,52 300,45 360,34 C420,26 480,18 540,12 C570,9 600,6 600,6" fill="none" stroke="#10b981" strokeWidth="2" />
+                <circle cx="600" cy="6" r="3" fill="#10b981" />
+              </svg>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+                <div className="text-[8px] text-zinc-600 mb-1.5">Kalender P&L</div>
+                <div className="grid grid-cols-7 gap-1">{Array.from({length:14}).map((_,i)=>(<div key={i} className={`h-3 rounded-sm ${i===9?"bg-emerald-500/40":i===12?"bg-emerald-500/70":"bg-[#1c1c28]"}`}/>))}</div>
+              </div>
+              <div className="flex-1 bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+                <div className="text-[8px] text-zinc-600 mb-1.5">Aktivitas Terbaru</div>
+                {[{t:"BBCA",s:"Open",p:"+35.5%",c:"text-emerald-400"},{t:"BMRI",s:"Closed",p:"+40.0%",c:"text-emerald-400"},{t:"BBRI",s:"Closed",p:"+33.3%",c:"text-emerald-400"}].map((r,i)=>(
+                  <div key={i} className="flex items-center py-1.5 border-b border-[#1c1c28] last:border-0 text-[10px]">
+                    <span className="font-mono font-semibold text-white mr-1.5">{r.t}</span>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded ${r.s==="Open"?"bg-emerald-500/10 text-emerald-400":"bg-zinc-500/10 text-zinc-500"}`}>{r.s}</span>
+                    <span className={`ml-auto font-mono ${r.c}`}>{r.p}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 1: Trades */}
+          <div className={screenClass(1)}>
+            <div className="flex justify-between items-center mb-3">
+              <div><span className="text-sm font-semibold text-white">Semua Trade</span><span className="text-[10px] text-zinc-600 ml-2">7 trade</span></div>
+              <div className="flex gap-1">
+                {["Semua 7","Open 2","Closed 5"].map((f,i)=>(<span key={i} className={`text-[9px] px-2 py-1 rounded-md border ${i===0?"bg-emerald-500/10 border-emerald-500/20 text-emerald-400":"bg-[#16161f] border-[#2a2a3a] text-zinc-600"}`}>{f}</span>))}
+              </div>
+            </div>
+            <div className="bg-[#16161f] border border-[#2a2a3a] rounded-lg overflow-hidden">
+              <div className="grid grid-cols-6 px-3 py-2 bg-[#111118] text-[8px] text-zinc-600 uppercase tracking-wider border-b border-[#2a2a3a]">
+                <div>Tanggal</div><div>Saham</div><div>Tipe</div><div>Entry</div><div>P&L</div><div>Status</div>
+              </div>
+              {[
+                {d:"19 Mar",t:"BBCA",tp:"Long",e:"5.000",pl:"+1.7M",plc:"text-emerald-400",s:"Open",sc:"bg-amber-500/10 text-amber-400"},
+                {d:"10 Mar",t:"BBCA",tp:"Long",e:"4.000",pl:"+2.7B",plc:"text-emerald-400",s:"Open",sc:"bg-amber-500/10 text-amber-400"},
+                {d:"3 Mar",t:"BMRI",tp:"Long",e:"5.000",pl:"+50M",plc:"text-emerald-400",s:"Closed",sc:"bg-zinc-500/10 text-zinc-500"},
+                {d:"2 Mar",t:"ASRI",tp:"Long",e:"200",pl:"+4M",plc:"text-emerald-400",s:"Closed",sc:"bg-zinc-500/10 text-zinc-500"},
+                {d:"30 Jan",t:"BBCA",tp:"Long",e:"7.100",pl:"-250K",plc:"text-red-400",s:"Closed",sc:"bg-zinc-500/10 text-zinc-500"},
+              ].map((r,i)=>(
+                <div key={i} className="grid grid-cols-6 px-3 py-2 text-[10px] border-b border-[#1c1c28] last:border-0">
+                  <div className="text-zinc-500">{r.d}</div>
+                  <div className="font-mono font-semibold text-white">{r.t}</div>
+                  <div><span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">{r.tp}</span></div>
+                  <div className="text-zinc-500 font-mono">{r.e}</div>
+                  <div className={`font-mono font-medium ${r.plc}`}>{r.pl}</div>
+                  <div><span className={`text-[8px] px-1.5 py-0.5 rounded ${r.sc}`}>{r.s}</span></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 2: Portfolio */}
+          <div className={screenClass(2)}>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <MiniCard label="Nilai Portfolio" value="Rp 6.78B" />
+              <div className="bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+                <div className="text-[8px] text-zinc-600 uppercase tracking-wider mb-1">Unrealized P&L</div>
+                <div className="text-sm font-semibold font-mono text-emerald-400">+Rp 2.77B</div>
+                <div className="text-[9px] text-emerald-400/70">+69.33%</div>
+              </div>
+              <MiniCard label="Posisi Aktif" value="1 saham" />
+            </div>
+            <div className="flex gap-2">
+              <div className="w-[110px] bg-[#16161f] border border-[#2a2a3a] rounded-lg p-3 text-center">
+                <div className="text-[8px] text-zinc-600 mb-2">Alokasi</div>
+                <svg viewBox="0 0 80 80" className="w-[60px] h-[60px] mx-auto">
+                  <circle cx="40" cy="40" r="28" fill="none" stroke="#2a2a3a" strokeWidth="7" />
+                  <circle cx="40" cy="40" r="28" fill="none" stroke="#10b981" strokeWidth="7" strokeDasharray="176" strokeDashoffset="0" transform="rotate(-90 40 40)" />
+                </svg>
+                <div className="flex items-center justify-center gap-1 mt-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="text-[9px] text-zinc-400 font-mono">BBCA 100%</span>
+                </div>
+              </div>
+              <div className="flex-1 bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+                <div className="grid grid-cols-6 pb-1.5 mb-1.5 border-b border-[#2a2a3a] text-[7px] text-zinc-600 uppercase tracking-wider">
+                  <div className="col-span-1">Saham</div><div>Lot</div><div>Avg Entry</div><div>Harga</div><div>P&L</div><div>%</div>
+                </div>
+                <div className="grid grid-cols-6 py-2 text-[10px] items-center">
+                  <div className="flex items-center gap-1 col-span-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /><span className="font-mono font-semibold text-white">BBCA</span></div>
+                  <div className="text-zinc-400 font-mono">10.010</div>
+                  <div className="text-zinc-400 font-mono">4.001</div>
+                  <div className="text-zinc-400 font-mono">6.775</div>
+                  <div className="text-emerald-400 font-mono">+2.77B</div>
+                  <div className="text-emerald-400 font-mono">+69.3%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3: Rapot */}
+          <div className={screenClass(3)}>
+            <div className="flex gap-2 mb-3">
+              <div className="w-[120px] bg-[#16161f] border border-emerald-500/20 rounded-lg p-4 text-center flex-shrink-0">
+                <svg viewBox="0 0 80 80" className="w-[56px] h-[56px] mx-auto mb-1">
+                  <circle cx="40" cy="40" r="28" fill="none" stroke="#2a2a3a" strokeWidth="4" />
+                  <circle cx="40" cy="40" r="28" fill="none" stroke="#34d399" strokeWidth="4" strokeDasharray="158" strokeDashoffset="16" strokeLinecap="round" transform="rotate(-90 40 40)" />
+                </svg>
+                <div className="text-2xl font-bold text-emerald-400">A+</div>
+                <div className="text-[9px] text-emerald-400/70">Luar Biasa</div>
+              </div>
+              <div className="flex-1 grid grid-cols-3 gap-1.5">
+                <MiniCard label="Total P&L" value="+53.7M" color="text-emerald-400" />
+                <MiniCard label="Win Rate" value="66.7%" />
+                <MiniCard label="Profit Factor" value="108.00" />
+                <MiniCard label="vs IHSG" value="OUTPERFORM" color="text-emerald-400" />
+                <MiniCard label="Win / Loss" value="2W / 1L" />
+                <MiniCard label="Avg Win" value="+Rp 27M" color="text-emerald-400" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+                <div className="text-[9px] text-white font-medium mb-2">🏆 Top Trades</div>
+                {[{t:"BMRI",p:"+Rp 50M"},{t:"ASRI",p:"+Rp 4M"}].map((r,i)=>(
+                  <div key={i} className="flex items-center py-1.5 border-b border-[#1c1c28] last:border-0 text-[10px]">
+                    <span className="mr-1.5">{["🥇","🥈"][i]}</span>
+                    <span className="font-mono font-semibold text-white">{r.t}</span>
+                    <span className="ml-auto font-mono text-emerald-400">{r.p}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex-1 bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+                <div className="text-[9px] text-white font-medium mb-2">📊 Portfolio vs IHSG</div>
+                <div className="flex gap-1.5">
+                  <div className="flex-1 bg-[#111118] rounded-md p-2 text-center">
+                    <div className="text-[7px] text-zinc-600 uppercase">Kamu</div>
+                    <div className="text-xs font-bold text-emerald-400 font-mono">+53.7M</div>
+                  </div>
+                  <div className="flex-1 bg-[#111118] rounded-md p-2 text-center">
+                    <div className="text-[7px] text-zinc-600 uppercase">IHSG</div>
+                    <div className="text-xs font-bold text-red-400 font-mono">-11.3%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4: Insights */}
+          <div className={screenClass(4)}>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm font-semibold text-white">Performa vs IHSG</span>
+              <div className="flex gap-1">
+                {["YTD","1 Tahun","2 Tahun"].map((p,i)=>(<span key={i} className={`text-[9px] px-2 py-1 rounded-md border ${i===1?"bg-emerald-500/10 border-emerald-500/20 text-emerald-400":"bg-[#16161f] border-[#2a2a3a] text-zinc-600"}`}>{p}</span>))}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <MiniCard label="BBRI Return" value="+3.59%" color="text-emerald-400" />
+              <MiniCard label="IHSG Return" value="+17.10%" color="text-emerald-400" />
+              <div className="bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+                <div className="text-[8px] text-zinc-600 uppercase tracking-wider mb-1">Alpha</div>
+                <div className="text-sm font-semibold font-mono text-red-400">-13.51%</div>
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">UNDERPERFORM</span>
+              </div>
+            </div>
+            <div className="bg-[#16161f] border border-[#2a2a3a] rounded-lg p-3 mb-3">
+              <svg viewBox="0 0 600 100" className="w-full h-[70px]">
+                <line x1="0" y1="50" x2="600" y2="50" stroke="#2a2a3a" strokeWidth="0.5" strokeDasharray="4" />
+                <path d="M0,60 C40,58 80,62 120,65 C180,52 240,45 300,35 C360,28 420,20 480,18 C520,22 560,26 600,28" fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.8" />
+                <path d="M0,55 C40,56 80,60 120,62 C180,64 240,58 300,55 C360,48 420,45 480,60 C520,62 560,65 600,64" fill="none" stroke="#10b981" strokeWidth="1.5" />
+              </svg>
+            </div>
+            <div className="bg-[#16161f] border border-[#2a2a3a] rounded-lg p-2.5">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[10px] text-white font-semibold">AI Analysis</span>
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Bullish</span>
+                <span className="text-[10px] font-mono text-emerald-400 ml-auto">7/10</span>
+              </div>
+              <p className="text-[10px] text-zinc-500 leading-relaxed">Saham BBRI menunjukkan penguatan fundamental dengan peningkatan laba bersih dan ekspansi kredit yang solid...</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
