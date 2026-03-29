@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
-export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete }) {
+export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete, onRefresh }) {
   const router = useRouter();
   const chartRef = useRef(null);
   const candleContainerRef = useRef(null);
@@ -17,12 +18,14 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
   const [showAi, setShowAi] = useState(false);
   const [chartData, setChartData] = useState(null);
   const [chartExpanded, setChartExpanded] = useState(false);
+  const [showAlertForm, setShowAlertForm] = useState(false);
+  const [alertForm, setAlertForm] = useState({ reasoning: item.reasoning || '', alert_enabled: item.alert_enabled || false });
+  const [savingAlert, setSavingAlert] = useState(false);
 
   const checks = item.watchlist_checklist || [];
   const checkedCount = checks.filter((c) => c.checked).length;
   const totalChecks = checks.length;
   const allChecked = totalChecks > 0 && checkedCount === totalChecks;
-
   const derivedStatus = totalChecks === 0 ? 'watching' : allChecked ? 'ready' : 'waiting';
 
   const statusConfig = {
@@ -32,12 +35,25 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
   };
   const sc = statusConfig[derivedStatus];
 
+  // Progress bar: posisi harga antara SL - Entry - TP
+  const cur = indicators?.lastPrice || item.last_price;
+  const sl = item.sl_price;
+  const tp = item.tp_price;
+  const entry = item.entry_price;
+  let progressPct = null;
+  let entryPct = null;
+  if (cur && sl && tp) {
+    const range = tp - sl;
+    progressPct = range > 0 ? Math.min(100, Math.max(0, ((cur - sl) / range) * 100)) : 50;
+    if (entry) entryPct = range > 0 ? Math.min(100, Math.max(0, ((entry - sl) / range) * 100)) : 50;
+  }
+  const distFromEntry = entry && cur ? (((cur - entry) / entry) * 100).toFixed(1) : null;
+
   useEffect(() => {
     async function fetchData() {
       try {
         const indRes = await fetch(`/api/indicators?ticker=${item.ticker}`);
         if (indRes.ok) setIndicators(await indRes.json());
-
         const now = Math.floor(Date.now() / 1000);
         const yearAgo = now - 365 * 24 * 60 * 60;
         const chartRes = await fetch(`/api/chart-data?ticker=${item.ticker}.JK&period1=${yearAgo}&period2=${now}`);
@@ -45,11 +61,8 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
           const data = await chartRes.json();
           if (data && data.length > 0) setChartData(data);
         }
-      } catch (err) {
-        console.error('Fetch error:', err);
-      } finally {
-        setLoadingIndicators(false);
-      }
+      } catch (err) { console.error('Fetch error:', err); }
+      finally { setLoadingIndicators(false); }
     }
     fetchData();
   }, [item.ticker]);
@@ -64,7 +77,6 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     ctx.scale(dpr, dpr);
-
     const closes = chartData.map((d) => d.close);
     const min = Math.min(...closes);
     const max = Math.max(...closes);
@@ -73,7 +85,6 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
     const isUp = closes[closes.length - 1] >= closes[0];
     const color = isUp ? '#22c55e' : '#ef4444';
     const gc = isUp ? 'rgba(34,197,94,' : 'rgba(239,68,68,';
-
     ctx.beginPath();
     closes.forEach((c, i) => {
       const x = (i / (closes.length - 1)) * w;
@@ -84,7 +95,6 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
     const grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, gc + '0.2)'); grad.addColorStop(1, gc + '0)');
     ctx.fillStyle = grad; ctx.fill();
-
     ctx.beginPath();
     closes.forEach((c, i) => {
       const x = (i / (closes.length - 1)) * w;
@@ -94,101 +104,47 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
     ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
   }, [chartData]);
 
-  // TradingView candlestick chart when expanded
   useEffect(() => {
     if (!chartExpanded || !chartData || !candleContainerRef.current) return;
-
     let cancelled = false;
-
     async function initCandleChart() {
       const { createChart } = await import('lightweight-charts');
       if (cancelled || !candleContainerRef.current) return;
-
-      // Remove old chart
-      if (candleChartRef.current) {
-        candleChartRef.current.remove();
-        candleChartRef.current = null;
-      }
-
+      if (candleChartRef.current) { candleChartRef.current.remove(); candleChartRef.current = null; }
       const container = candleContainerRef.current;
       const chart = createChart(container, {
-        width: container.clientWidth,
-        height: 350,
+        width: container.clientWidth, height: 350,
         layout: { background: { color: 'transparent' }, textColor: '#71717a', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" },
         grid: { vertLines: { color: 'rgba(148,163,184,0.04)' }, horzLines: { color: 'rgba(148,163,184,0.04)' } },
         rightPriceScale: { borderColor: 'rgba(148,163,184,0.1)' },
         timeScale: { borderColor: 'rgba(148,163,184,0.1)', timeVisible: false },
         crosshair: { vertLine: { color: 'rgba(148,163,184,0.2)', labelBackgroundColor: '#1e293b' }, horzLine: { color: 'rgba(148,163,184,0.2)', labelBackgroundColor: '#1e293b' } },
       });
-
       candleChartRef.current = chart;
-
-      // Deduplicate
       const seen = new Set();
-      const cleanData = chartData
-        .filter((d) => { if (seen.has(d.time)) return false; seen.add(d.time); return true; })
-        .sort((a, b) => (a.time > b.time ? 1 : -1));
-
-      const candleSeries = chart.addCandlestickSeries({
-        upColor: '#22c55e', downColor: '#ef4444',
-        borderUpColor: '#22c55e', borderDownColor: '#ef4444',
-        wickUpColor: '#22c55e80', wickDownColor: '#ef444480',
-      });
+      const cleanData = chartData.filter((d) => { if (seen.has(d.time)) return false; seen.add(d.time); return true; }).sort((a, b) => (a.time > b.time ? 1 : -1));
+      const candleSeries = chart.addCandlestickSeries({ upColor: '#22c55e', downColor: '#ef4444', borderUpColor: '#22c55e', borderDownColor: '#ef4444', wickUpColor: '#22c55e80', wickDownColor: '#ef444480' });
       candleSeries.setData(cleanData);
-
-      // Volume
-      const volSeries = chart.addHistogramSeries({
-        priceFormat: { type: 'volume' },
-        priceScaleId: 'vol',
-      });
+      const volSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'vol' });
       chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
-      volSeries.setData(cleanData.map((d) => ({
-        time: d.time,
-        value: d.volume,
-        color: d.close >= d.open ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-      })));
-
-      // Entry/SL/TP lines
-      if (item.entry_price) {
-        candleSeries.createPriceLine({ price: item.entry_price, color: '#3b82f6', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'Entry' });
-      }
-      if (item.sl_price) {
-        candleSeries.createPriceLine({ price: item.sl_price, color: '#ef4444', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'SL' });
-      }
-      if (item.tp_price) {
-        candleSeries.createPriceLine({ price: item.tp_price, color: '#22c55e', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'TP' });
-      }
-
+      volSeries.setData(cleanData.map((d) => ({ time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' })));
+      if (item.entry_price) candleSeries.createPriceLine({ price: item.entry_price, color: '#3b82f6', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'Entry' });
+      if (item.sl_price) candleSeries.createPriceLine({ price: item.sl_price, color: '#ef4444', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'SL' });
+      if (item.tp_price) candleSeries.createPriceLine({ price: item.tp_price, color: '#22c55e', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'TP' });
       chart.timeScale().fitContent();
-
-      const handleResize = () => {
-        if (candleContainerRef.current && candleChartRef.current) {
-          candleChartRef.current.applyOptions({ width: candleContainerRef.current.clientWidth });
-        }
-      };
+      const handleResize = () => { if (candleContainerRef.current && candleChartRef.current) candleChartRef.current.applyOptions({ width: candleContainerRef.current.clientWidth }); };
       window.addEventListener('resize', handleResize);
       return () => window.removeEventListener('resize', handleResize);
     }
-
     initCandleChart();
-
-    return () => {
-      cancelled = true;
-      if (candleChartRef.current) {
-        candleChartRef.current.remove();
-        candleChartRef.current = null;
-      }
-    };
+    return () => { cancelled = true; if (candleChartRef.current) { candleChartRef.current.remove(); candleChartRef.current = null; } };
   }, [chartExpanded, chartData, item.entry_price, item.sl_price, item.tp_price]);
 
   async function fetchAiAnalysis() {
     if (aiAnalysis) { setShowAi(!showAi); return; }
     setShowAi(true); setAiLoading(true); setAiError(null);
     try {
-      const res = await fetch('/api/ai-analysis', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: item.ticker }),
-      });
+      const res = await fetch('/api/ai-analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticker: item.ticker }) });
       if (!res.ok) throw new Error('Gagal fetch analisis');
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -197,11 +153,19 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
     finally { setAiLoading(false); }
   }
 
+  async function handleSaveAlert() {
+    setSavingAlert(true);
+    await supabase.from('watchlist').update({
+      reasoning: alertForm.reasoning,
+      alert_enabled: alertForm.alert_enabled,
+    }).eq('id', item.id);
+    setSavingAlert(false);
+    setShowAlertForm(false);
+    if (onRefresh) onRefresh();
+  }
+
   function handleExecuteTrade() {
-    const params = new URLSearchParams({
-      ticker: item.ticker, entry_price: item.entry_price || '',
-      sl_price: item.sl_price || '', tp_price: item.tp_price || '', type: 'long',
-    });
+    const params = new URLSearchParams({ ticker: item.ticker, entry_price: item.entry_price || '', sl_price: item.sl_price || '', tp_price: item.tp_price || '', type: 'long' });
     router.push(`/trades/new?${params.toString()}`);
   }
 
@@ -215,11 +179,18 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
   return (
     <div className="bg-[#16161f] border border-[#2a2a3a] rounded-r-xl overflow-hidden animate-fade-in" style={{ borderLeft: `3px solid ${sc.accent}` }}>
       <div className="p-5">
+        {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="text-lg font-mono font-semibold text-white">{item.ticker}</span>
             <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${sc.bg} ${sc.border} border ${sc.text}`}>{sc.label}</span>
             {item.strategy_tag && <span className="px-2 py-0.5 rounded text-[11px] bg-purple-500/10 text-purple-400">{item.strategy_tag}</span>}
+            {item.alert_enabled && (
+              <span className="px-2 py-0.5 rounded text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                Alert ON
+              </span>
+            )}
           </div>
           <div className="text-right flex items-center gap-3">
             {indicators && (
@@ -241,7 +212,7 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
           </div>
         </div>
 
-        {/* Chart — click to expand candlestick */}
+        {/* Chart */}
         <div className="mb-4 rounded-lg bg-[#0f0f17] overflow-hidden cursor-pointer" onClick={() => setChartExpanded(!chartExpanded)}>
           {!chartExpanded ? (
             <div className="relative" style={{ height: 80 }}>
@@ -259,14 +230,48 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
           )}
         </div>
 
+        {/* Plan boxes + progress bar */}
         {(item.entry_price || item.sl_price || item.tp_price) && (
-          <div className="grid grid-cols-3 gap-2.5 mb-4">
-            <PlanBox label="Entry" value={item.entry_price} color="text-white" />
-            <PlanBox label="Stop loss" value={item.sl_price} color="text-red-400" />
-            <PlanBox label="Take profit" value={item.tp_price} color="text-emerald-400" sub={rrRatio ? `R:R 1:${rrRatio}` : null} />
+          <div className="mb-4">
+            <div className="grid grid-cols-3 gap-2.5 mb-2">
+              <PlanBox label="Entry" value={item.entry_price} color="text-white"
+                sub={distFromEntry ? `${distFromEntry > 0 ? '+' : ''}${distFromEntry}% dari sekarang` : null} />
+              <PlanBox label="Stop loss" value={item.sl_price} color="text-red-400" />
+              <PlanBox label="Take profit" value={item.tp_price} color="text-emerald-400" sub={rrRatio ? `R:R 1:${rrRatio}` : null} />
+            </div>
+            {progressPct !== null && (
+              <div>
+                <div className="flex justify-between text-[9px] text-zinc-600 mb-1">
+                  <span>SL {formatRupiahShort(sl)}</span>
+                  {entryPct !== null && <span className="text-zinc-400">Entry {formatRupiahShort(entry)}</span>}
+                  <span>TP {formatRupiahShort(tp)}</span>
+                </div>
+                <div className="h-1.5 bg-[#1e1e2e] rounded-full relative overflow-visible">
+                  <div className="h-full bg-emerald-500/50 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+                  <div className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#0f0f17] transition-all"
+                    style={{ left: `calc(${progressPct}% - 5px)` }} />
+                  {entryPct !== null && (
+                    <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-zinc-500 rounded-full"
+                      style={{ left: `${entryPct}%` }} />
+                  )}
+                </div>
+                <div className="text-[9px] text-zinc-600 mt-1 text-right">
+                  Harga kini: <span className="text-zinc-400">{formatRupiah(cur)}</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
+        {/* Reasoning (kalau ada) */}
+        {item.reasoning && (
+          <div className="bg-[#0f0f17] border-l-2 border-emerald-500/30 rounded-r-lg px-3 py-2 mb-4">
+            <div className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Plan Reasoning</div>
+            <p className="text-xs text-zinc-400 leading-relaxed italic">"{item.reasoning}"</p>
+          </div>
+        )}
+
+        {/* Indicators */}
         {indicators && (
           <div className="flex flex-wrap gap-2 mb-4">
             <IndicatorPill label="RSI" value={indicators.rsi?.toFixed(1)} color={indicators.rsi > 70 ? 'red' : indicators.rsi < 30 ? 'green' : 'neutral'} hint={indicators.rsi > 70 ? 'Overbought' : indicators.rsi < 30 ? 'Oversold' : ''} />
@@ -278,12 +283,14 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
         )}
         {loadingIndicators && <div className="flex gap-2 mb-4">{[1,2,3].map(i => <div key={i} className="h-7 w-24 bg-white/[0.03] rounded-lg animate-pulse" />)}</div>}
 
+        {/* Checklist */}
         {checks.length > 0 && (
           <div className="mb-4">
             <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Checklist</div>
             <div className="flex flex-wrap gap-1.5">
               {checks.sort((a, b) => a.sort_order - b.sort_order).map((c) => (
-                <button key={c.id} onClick={() => onToggleCheck(c.id, !c.checked)} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer ${c.checked ? 'bg-emerald-500/10 border border-emerald-500/20 text-zinc-300' : 'bg-[#1c1c28] border border-[#2a2a3a] text-zinc-500 hover:text-zinc-400'}`}>
+                <button key={c.id} onClick={() => onToggleCheck(c.id, !c.checked)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] transition-all cursor-pointer ${c.checked ? 'bg-emerald-500/10 border border-emerald-500/20 text-zinc-300' : 'bg-[#1c1c28] border border-[#2a2a3a] text-zinc-500 hover:text-zinc-400'}`}>
                   <span className={c.checked ? 'text-emerald-400' : 'text-zinc-600'}>{c.checked ? '✓' : '○'}</span>
                   {c.label}
                 </button>
@@ -295,6 +302,7 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
           </div>
         )}
 
+        {/* Notes */}
         {item.notes && (
           <div className="bg-[#0f0f17] rounded-lg px-3 py-2.5 mb-4">
             <div className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Notes</div>
@@ -302,17 +310,65 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
           </div>
         )}
 
+        {/* Actions */}
         <div className="flex gap-2">
           {derivedStatus === 'ready' && (
             <button onClick={handleExecuteTrade} className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25 transition-colors">
               Eksekusi trade →
             </button>
           )}
-          <button onClick={fetchAiAnalysis} className={`py-2.5 px-4 rounded-lg text-sm transition-colors ${showAi ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' : 'text-zinc-500 bg-[#1c1c28] hover:text-zinc-300'}`}>
+          <button onClick={() => setShowAlertForm(!showAlertForm)}
+            className={`py-2.5 px-4 rounded-lg text-sm transition-colors ${
+              item.alert_enabled
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : showAlertForm ? 'bg-[#1c1c28] text-zinc-300' : 'text-zinc-500 bg-[#1c1c28] hover:text-zinc-300'
+            }`}>
+            {item.alert_enabled ? '🔔 Alert aktif' : 'Set Alert'}
+          </button>
+          <button onClick={fetchAiAnalysis}
+            className={`py-2.5 px-4 rounded-lg text-sm transition-colors ${showAi ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' : 'text-zinc-500 bg-[#1c1c28] hover:text-zinc-300'}`}>
             {aiLoading ? 'Analyzing...' : showAi ? 'Tutup AI' : 'AI Analysis'}
           </button>
         </div>
 
+        {/* Alert form inline */}
+        {showAlertForm && (
+          <div className="mt-4 border-t border-[#2a2a3a] pt-4 space-y-3">
+            <div className="text-xs text-zinc-400 font-medium">Price Alert</div>
+            {!item.entry_price && (
+              <p className="text-xs text-amber-400">Tambahkan Entry price dulu via tombol Edit biar alert bisa jalan.</p>
+            )}
+            <div>
+              <label className="text-[10px] text-zinc-500 block mb-1">Reasoning — kenapa mau entry di sini?</label>
+              <textarea
+                value={alertForm.reasoning}
+                onChange={e => setAlertForm(f => ({ ...f, reasoning: e.target.value }))}
+                placeholder="Support kuat, RSI oversold, volume naik..."
+                rows={2}
+                className="w-full bg-black/30 border border-[#2a2a3a] rounded-lg px-3 py-2 text-xs text-zinc-300 outline-none focus:border-emerald-500/50 placeholder:text-zinc-700 resize-none"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setAlertForm(f => ({ ...f, alert_enabled: !f.alert_enabled }))}
+                className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${alertForm.alert_enabled ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
+                <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-all ${alertForm.alert_enabled ? 'right-0.5' : 'left-0.5'}`} />
+              </button>
+              <span className="text-xs text-zinc-400">
+                Kirim email saat harga mendekati entry
+                {item.entry_price ? ` (${formatRupiah(item.entry_price)})` : ''}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowAlertForm(false)} className="flex-1 py-2 rounded-lg border border-zinc-700 text-zinc-400 text-xs hover:text-zinc-200 transition-colors">Batal</button>
+              <button onClick={handleSaveAlert} disabled={savingAlert}
+                className="flex-1 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-medium transition-colors disabled:opacity-50">
+                {savingAlert ? 'Menyimpan...' : 'Simpan Alert'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* AI Analysis */}
         {showAi && (
           <div className="mt-4 border-t border-[#2a2a3a] pt-4">
             {aiLoading && (
@@ -376,6 +432,7 @@ export default function WatchlistCard({ item, onToggleCheck, onEdit, onDelete })
         )}
       </div>
 
+      {/* Delete confirm */}
       {showDeleteConfirm && (
         <div className="px-5 py-3 bg-red-500/[0.04] border-t border-red-500/10 flex items-center justify-between">
           <span className="text-xs text-red-400">Hapus {item.ticker} dari watchlist?</span>

@@ -134,6 +134,7 @@ export default function WatchlistPage() {
               onToggleCheck={handleToggleCheck}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onRefresh={fetchWatchlist}
             />
           ))}
         </div>

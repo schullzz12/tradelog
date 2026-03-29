@@ -48,11 +48,11 @@ export default function LandingPage() {
             <span className="text-base font-semibold text-white tracking-tight">TradeLog</span>
           </Link>
           <div className="flex items-center gap-6">
-            <a href="#kenapa" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Kenapa Journaling?</a>
-            <a href="#harga" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Harga</a>
-            <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">Login</Link>
+            <a href="#kenapa" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Mengapa TradeLog?</a>
+            <a href="#cara-kerja" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">Cara Kerja</a>
+            <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">Masuk</Link>
             <Link href="/register" className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors">
-              Mulai Gratis
+              Daftar Gratis
             </Link>
           </div>
         </div>
@@ -61,32 +61,31 @@ export default function LandingPage() {
       {/* ── HERO ── */}
       <section className="pt-20 pb-12 text-center">
         <div className="max-w-[1100px] mx-auto px-6">
-          {/* Shocking stat badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 mb-7 animate-fade-in">
-            <span className="text-xs font-semibold text-red-400">82% trader Indonesia rugi.</span>
-            <span className="text-xs text-zinc-500">Kamu salah satunya?</span>
+            <span className="text-xs font-semibold text-red-400">82% trader kehilangan uang.</span>
+            <span className="text-xs text-zinc-500">Bukan karena strategi yang buruk.</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-bold text-white leading-[1.15] tracking-tight mb-6 max-w-[750px] mx-auto animate-fade-in stagger-1">
-            Bukan strategi kamu yang salah.
+            Trading Anda punya pola.
             <br />
-            <span className="text-zinc-500">Kamu cuma gak pernah evaluasi.</span>
+            <span className="text-zinc-500">Anda hanya belum melihatnya.</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-zinc-400 max-w-[560px] mx-auto mb-5 leading-relaxed animate-fade-in stagger-2">
-            Selama ini kamu trading tanpa tracking — gak tau seberapa efektif strategi kamu, dan sebesar apa peran emosi mempengaruhi keputusan trading kamu.
+          <p className="text-lg sm:text-xl text-emerald-400 font-semibold max-w-[600px] mx-auto mb-5 leading-relaxed animate-fade-in stagger-2">
+            Satu kebiasaan yang membedakan trader yang rugi dan yang profit: evaluasi.
           </p>
 
-          <p className="text-sm text-zinc-600 max-w-[500px] mx-auto mb-9 leading-relaxed animate-fade-in stagger-3">
-            TradeLog bantu kamu sadar pattern, kontrol emosi, dan tingkatkan win rate — dengan data, bukan feeling.
+          <p className="text-sm text-zinc-500 max-w-[520px] mx-auto mb-9 leading-relaxed animate-fade-in stagger-3">
+            TradeLog membantu Anda menemukan pola tersembunyi dalam setiap transaksi — sehingga Anda bisa berhenti menebak dan mulai memahami.
           </p>
 
           <div className="mb-4 animate-fade-in stagger-4">
             <Link href="/register" className="inline-flex px-8 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-semibold transition-colors">
-              Mulai Evaluasi Trading Kamu →
+              Mulai Sekarang — Gratis →
             </Link>
           </div>
-          <p className="text-xs text-zinc-700 animate-fade-in stagger-4">Gratis. Tanpa kartu kredit. Setup 30 detik.</p>
+          <p className="text-xs text-zinc-700 animate-fade-in stagger-4">100% gratis. Tanpa kartu kredit. Siap dalam 30 detik.</p>
         </div>
       </section>
 
@@ -100,13 +99,13 @@ export default function LandingPage() {
       {/* ── PAIN POINTS ── */}
       <section className="py-12" id="kenapa">
         <div className="max-w-[1100px] mx-auto px-6">
-          <p className="text-center text-xs font-medium text-zinc-600 uppercase tracking-widest mb-8">Pernah ngerasa gini?</p>
+          <p className="text-center text-xs font-medium text-zinc-600 uppercase tracking-widest mb-8">Masalah yang sering tidak disadari</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { emoji: "😤", title: '"Kok rugi lagi?"', desc: "Kamu ngulangin kesalahan yang sama berulang kali — tapi gak sadar karena gak pernah review.", color: "bg-red-500" },
-              { emoji: "🎰", title: '"Trading kok kayak gambling?"', desc: "Gak ada data, gak ada sistem. Entry karena FOMO, exit karena panik. Ujung-ujungnya gak konsisten.", color: "bg-amber-500" },
-              { emoji: "📉", title: '"Win rate tinggi tapi tetap minus"', desc: "Profit kecil-kecil, loss gede sekali. Tanpa tracking R:R ratio, kamu gak akan tau masalahnya di mana.", color: "bg-violet-500" },
+              { emoji: "🔄", title: "Kerugian yang terus berulang", desc: "Tanpa catatan dan evaluasi, kesalahan yang sama akan terulang tanpa pernah Anda sadari.", color: "bg-red-500" },
+              { emoji: "📊", title: "Trading tanpa sistem", desc: "Keputusan yang didorong emosi — masuk karena FOMO, keluar karena panik — menghasilkan performa yang tidak konsisten.", color: "bg-amber-500" },
+              { emoji: "⚖️", title: "Profit kecil, kerugian besar", desc: "Win rate tinggi tidak menjamin keuntungan. Tanpa memantau rasio risk-reward, profit bisa habis dalam satu transaksi.", color: "bg-violet-500" },
             ].map((item, i) => (
               <div key={i} className="bg-[#16161f] border border-[#2a2a3a] rounded-xl p-7 relative overflow-hidden group hover:border-[#3a3a4f] transition-colors">
                 <div className={`absolute top-0 left-0 right-0 h-0.5 ${item.color} opacity-50`} />
@@ -125,12 +124,12 @@ export default function LandingPage() {
           <div className="bg-[#16161f] border border-[#2a2a3a] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-blue-500" />
 
-            <p className="text-xs font-medium text-zinc-600 uppercase tracking-widest mb-6">Riset dari 25.000+ trader & 4 juta transaksi</p>
+            <p className="text-xs font-medium text-zinc-600 uppercase tracking-widest mb-6">Berdasarkan riset terhadap 25.000+ trader & 4 juta transaksi</p>
 
             <div className="grid grid-cols-3 gap-6 mb-7">
               {[
-                { num: "82%", color: "text-red-400", desc: "trader tetap rugi meski\nwin rate di atas 50%" },
-                { num: "35%", color: "text-amber-400", desc: "win rate saat trading\ndalam kondisi cemas" },
+                { num: "82%", color: "text-red-400", desc: "trader mengalami kerugian\nmeski win rate di atas 50%" },
+                { num: "35%", color: "text-amber-400", desc: "win rate saat trading\ndalam kondisi emosional" },
                 { num: "70%", color: "text-emerald-400", desc: "win rate saat trading\ndalam kondisi tenang" },
               ].map((s, i) => (
                 <div key={i} className="text-center">
@@ -142,8 +141,8 @@ export default function LandingPage() {
 
             <div className="bg-[#111118] rounded-xl p-4 border border-[#2a2a3a]">
               <p className="text-sm text-zinc-400 leading-relaxed">
-                <span className="text-emerald-400 font-semibold">Insight:</span> Masalah terbesar trader bukan strategi — tapi{" "}
-                <span className="text-white font-medium">gak sadar kapan emosi menguasai keputusan</span>. Trader yang journaling bisa identifikasi pattern ini dan menghindarinya.
+                <span className="text-emerald-400 font-semibold">Temuan utama:</span> Faktor terbesar penyebab kerugian bukan strategi yang salah — melainkan{" "}
+                <span className="text-white font-medium">ketidakmampuan mengenali kapan emosi menguasai pengambilan keputusan</span>. Trading journal membantu mengidentifikasi dan menghindari pola ini.
               </p>
             </div>
 
@@ -157,8 +156,8 @@ export default function LandingPage() {
       {/* ── BEFORE / AFTER ── */}
       <section className="py-12">
         <div className="max-w-[1100px] mx-auto px-6">
-          <h2 className="text-center text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2">Dari nebak jadi ngerti</h2>
-          <p className="text-center text-sm text-zinc-600 mb-9">Ini yang terjadi kalau kamu mulai journaling dengan serius</p>
+          <h2 className="text-center text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2">Dari menebak menjadi memahami</h2>
+          <p className="text-center text-sm text-zinc-600 mb-9">Perubahan nyata yang terjadi ketika Anda mulai mencatat setiap transaksi</p>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0 items-start">
             {/* Before */}
@@ -168,10 +167,10 @@ export default function LandingPage() {
                 <span className="text-sm font-semibold text-red-400">Tanpa Journal</span>
               </div>
               {[
-                '"Kayaknya bulan ini profit deh" — tapi pas dihitung ternyata minus',
-                "Revenge trading setelah loss — win rate turun ke 25%",
-                "Gak tau setup mana yang profitable dan mana yang buang duit",
-                'Trading berdasarkan "perasaan", bukan data',
+                "Merasa profit, namun saat dihitung hasilnya justru minus",
+                "Mengambil posisi impulsif setelah kerugian — win rate turun drastis",
+                "Tidak mengetahui strategi mana yang menghasilkan dan mana yang merugikan",
+                "Keputusan trading berdasarkan perasaan, bukan data",
               ].map((t, i) => (
                 <div key={i} className="flex items-start gap-2.5 mb-3.5 last:mb-0">
                   <span className="text-red-400 text-sm mt-0.5 flex-shrink-0">✕</span>
@@ -207,10 +206,10 @@ export default function LandingPage() {
                 <span className="text-sm font-semibold text-emerald-400">Dengan TradeLog</span>
               </div>
               {[
-                { month: "Bulan 1:", text: "Sadar kalau FOMO trading bikin kamu rugi 40%" },
-                { month: "Bulan 3:", text: "Win rate naik dari 45% ke 62% karena hindari bad setup" },
-                { month: "Bulan 6:", text: "Tau persis jam, setup, dan kondisi emosi terbaik kamu" },
-                { month: "Bulan 12:", text: "Trading dengan confidence — data proves it works" },
+                { month: "Bulan ke-1:", text: "Menyadari pola emosional yang selama ini menyebabkan kerugian" },
+                { month: "Bulan ke-3:", text: "Win rate meningkat karena mengeliminasi setup yang tidak efektif" },
+                { month: "Bulan ke-6:", text: "Memahami waktu, strategi, dan kondisi terbaik untuk bertransaksi" },
+                { month: "Bulan ke-12:", text: "Trading dengan keyakinan yang didukung data — bukan spekulasi" },
               ].map((t, i) => (
                 <div key={i} className="flex items-start gap-2.5 mb-3.5 last:mb-0">
                   <span className="text-emerald-400 text-sm mt-0.5 flex-shrink-0">✓</span>
@@ -229,24 +228,24 @@ export default function LandingPage() {
         <div className="max-w-[700px] mx-auto px-6">
           <div className="bg-[#111118] border border-[#2a2a3a] rounded-xl p-8 text-center">
             <p className="text-base text-zinc-400 leading-relaxed italic mb-4">
-              &quot;Trading journal bukan opsional kalau kamu serius mau profit. Ini pembeda antara menebak dan mengerti, antara mengulangi kesalahan dan belajar darinya.&quot;
+              &quot;Trading journal bukan sekadar catatan — ini adalah alat evaluasi yang membedakan trader yang berkembang dari yang stagnan.&quot;
             </p>
-            <p className="text-xs text-zinc-600">— Berdasarkan konsensus profesional trader & research</p>
+            <p className="text-xs text-zinc-600">— Berdasarkan konsensus profesional trader & penelitian akademis</p>
           </div>
         </div>
       </section>
 
       {/* ── 3 STEPS ── */}
-      <section className="py-12">
+      <section className="py-12" id="cara-kerja">
         <div className="max-w-[1100px] mx-auto px-6">
-          <h2 className="text-center text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2">Simpel. Cuma 3 langkah.</h2>
-          <p className="text-center text-sm text-zinc-600 mb-10">Gak perlu ribet. Mulai journal hari ini, lihat hasilnya bulan depan.</p>
+          <h2 className="text-center text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2">Tiga langkah menuju trading yang lebih baik</h2>
+          <p className="text-center text-sm text-zinc-600 mb-10">Proses sederhana yang langsung bisa Anda mulai hari ini.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { num: "1", color: "emerald", title: "Catat setiap trade", desc: "Masukkan entry, exit, setup, dan emosi kamu. Kurang dari 30 detik per trade." },
-              { num: "2", color: "blue", title: "TradeLog analisis otomatis", desc: "Dashboard, rapot bulanan, korelasi emosi, performa vs IHSG — semua dihitung otomatis." },
-              { num: "3", color: "amber", title: "Improve & profit", desc: "Lihat pattern kamu, hilangkan kebiasaan buruk, dan buat keputusan berdasarkan data." },
+              { num: "1", color: "emerald", title: "Catat setiap transaksi", desc: "Masukkan detail entry, exit, strategi, dan kondisi emosi Anda. Kurang dari 30 detik per trade." },
+              { num: "2", color: "blue", title: "Analisis otomatis", desc: "Dashboard, laporan bulanan, korelasi emosi, dan perbandingan dengan IHSG — semuanya dihitung secara otomatis." },
+              { num: "3", color: "amber", title: "Evaluasi dan tingkatkan", desc: "Identifikasi pola, eliminasi kebiasaan yang merugikan, dan ambil keputusan berdasarkan data." },
             ].map((step, i) => {
               const colors = {
                 emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
@@ -267,51 +266,40 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PRICING ── */}
-      <section className="py-12" id="harga">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <h2 className="text-center text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2">Investasi terkecil untuk trading yang lebih baik</h2>
-          <p className="text-center text-sm text-zinc-600 mb-10">Mulai gratis. Satu loss yang kamu hindari sudah balik modal.</p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-[700px] mx-auto">
-            {/* Free */}
-            <div className="bg-[#16161f] border border-[#2a2a3a] rounded-xl p-8">
-              <div className="text-sm text-zinc-500 font-medium mb-1">Free</div>
-              <div className="text-4xl font-bold text-white mb-0.5">Rp 0</div>
-              <div className="text-xs text-zinc-600 mb-6">Selamanya gratis</div>
-              <Link href="/register" className="block text-center py-3 rounded-lg border border-[#2a2a3a] text-sm text-zinc-400 font-medium hover:bg-[#1c1c28] transition-colors mb-6">
-                Mulai Sekarang
-              </Link>
-              <div className="text-sm text-zinc-500 space-y-2.5">
-                <p>50 trades / bulan</p>
-                <p>Dashboard & statistik</p>
-                <p>P&L calendar</p>
-                <p>Equity curve</p>
-                <p>Export CSV</p>
-              </div>
+      {/* ── FREE SECTION ── */}
+      <section className="py-12">
+        <div className="max-w-[700px] mx-auto px-6">
+          <div className="bg-[#16161f] border border-emerald-500/20 rounded-2xl p-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
             </div>
-
-            {/* Pro */}
-            <div className="bg-[#16161f] border-2 border-emerald-500 rounded-xl p-8 relative">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-emerald-500 text-[11px] font-semibold text-white">
-                Serius Profit
-              </div>
-              <div className="text-sm text-emerald-400 font-medium mb-1">Pro</div>
-              <div className="text-4xl font-bold text-white mb-0.5">Rp 99K</div>
-              <div className="text-xs text-zinc-600 mb-6">/ bulan · lebih murah dari 1x loss</div>
-              <Link href="/register" className="block text-center py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm text-white font-semibold transition-colors mb-6">
-                Upgrade ke Pro
-              </Link>
-              <div className="text-sm text-zinc-300 space-y-2.5">
-                <p>Unlimited trades</p>
-                <p>Rapot bulanan + grade</p>
-                <p>Emosi vs win rate analysis</p>
-                <p>Performa vs IHSG</p>
-                <p>AI Analysis per saham</p>
-                <p>Portfolio tracker</p>
-                <p>Top 5 saham bulanan</p>
-              </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Sepenuhnya gratis</h2>
+            <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto leading-relaxed">
+              Semua fitur TradeLog dapat Anda gunakan tanpa biaya. Tidak ada batasan waktu, tidak perlu kartu kredit.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 text-left">
+              {[
+                "Dashboard & statistik lengkap",
+                "Portfolio tracker real-time",
+                "Laporan bulanan & grading",
+                "AI Analysis per saham",
+                "Pelacakan emosi & korelasi",
+                "Perbandingan performa vs IHSG",
+              ].map((feat, i) => (
+                <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg bg-[#111118]">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span className="text-xs text-zinc-400">{feat}</span>
+                </div>
+              ))}
             </div>
+            <Link href="/register" className="inline-flex px-8 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-semibold transition-colors">
+              Daftar Sekarang — Gratis →
+            </Link>
           </div>
         </div>
       </section>
@@ -320,13 +308,13 @@ export default function LandingPage() {
       <section className="py-12 pb-16">
         <div className="max-w-[700px] mx-auto px-6">
           <div className="bg-[#16161f] border border-[#2a2a3a] rounded-2xl p-10 sm:p-12 text-center">
-            <p className="text-sm text-zinc-600 mb-3">Masih mau trading tanpa evaluasi?</p>
+            <p className="text-sm text-zinc-600 mb-3">Masih trading tanpa evaluasi?</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-3">
-              Mulai tau <span className="text-emerald-400">kenapa</span> kamu profit.
+              Ketahui <span className="text-emerald-400">mengapa</span> Anda profit.
               <br />
-              Mulai tau <span className="text-red-400">kenapa</span> kamu rugi.
+              Pahami <span className="text-red-400">mengapa</span> Anda rugi.
             </h2>
-            <p className="text-sm text-zinc-500 mb-7">Satu keputusan. 30 detik signup. Trading yang lebih baik dimulai dari sini.</p>
+            <p className="text-sm text-zinc-500 mb-7">Satu langkah sederhana. 30 detik pendaftaran. Perjalanan menuju trading yang lebih baik dimulai di sini.</p>
             <Link href="/register" className="inline-flex px-9 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-semibold transition-colors">
               Daftar Gratis Sekarang →
             </Link>
